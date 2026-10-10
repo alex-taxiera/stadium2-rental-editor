@@ -31,3 +31,7 @@ tools/vtxdis
 
 # Local-only CI migration notes
 /.ignore/
+
+# Rental editor mod
+mod/data/cache/
+expected/
