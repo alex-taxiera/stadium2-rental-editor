@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Tests that need the ROM or a build skip themselves.
       - name: Tool tests
@@ -49,7 +49,7 @@ jobs:
     env:
       TAG: ${{ github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # Fails, and so drafts nothing, when mod/CHANGELOG.md has no entry for the tag.
       - name: Write the release notes
@@ -81,7 +81,7 @@ jobs:
       TAG: ${{ github.event.release.tag_name }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: The patch is the only file attached
         run: |
