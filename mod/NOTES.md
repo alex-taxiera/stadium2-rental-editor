@@ -4,7 +4,9 @@ Reverse-engineering notes for the rental editor mod. Addresses are for the US RO
 (sha1 `d8343e69a7dc63b869cf6361d87cde64444281d3`). Each fact is tagged:
 **[C]** confirmed in source, **[I]** inferred and still to be verified at runtime.
 
-Base: `michiiik/pokestadiumgs` pinned at `e06da865` (branch `rental-editor`).
+Base: `michiiik/pokestadiumgs` at `e82d7f7` (branch `rental-editor`). Rebased there on
+2026-10-11 from `e06da865`, 155 commits of decompilation later; see "Moving to a newer
+base" under "Tests".
 Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
 
 ## Status
@@ -258,6 +260,9 @@ opens the picker (box tabs `P`, `1`–`14`, `R`; 3 rows x 4 cells visible).
   (`party + 0x20 + n * 0xCE8`), so every record the detail panel is given starts a cell.
 - The icon is rendered into the cell by `func_8004D878(cell + 0x60, 0, cell)` when the
   cell is filled, and drawn from there; entering a Pokémon copies the whole cell.
+- The list itself is an object of 0xE918 bytes, set up by `func_8130B220(list, panel,
+  controller, count)`: `+0xE8EC` the detail panel it opens, `+0xE910` the controller that
+  drives it, `+0xE912` its state. **[C]** in source since the rebase; not used by the mod.
 - Pressing A on a cell opens the detail panel (stats, four moves) and the menu
   **ENTER: Yes / No / ITEM**, plus "C to check TM". This menu is where EDIT goes.
   The game already lets a rental be given a held item through ITEM.
@@ -498,6 +503,27 @@ only; no game graphics are kept). The emulated picture has noise that changes ev
 frame, so this only works because test runs are frame-exact (below). A hash therefore
 also changes when the button presses leading up to its screenshot change. After looking
 at the new screenshots in `.emu/test/remote`, `UPDATE_SCREENS=1` re-records them.
+
+### Moving to a newer base
+
+The mod only depends on the decompilation for the game's symbols, the build tools, and
+the assembly of the three functions it hooks (`mod/hooks.txt`). Before rebasing, compare
+the old and new base:
+
+    git fetch origin
+    git diff --name-only <base> origin/master -- . ':!src' ':!docs' ':!COVERAGE.md'    # build or tools changed?
+    git diff --name-only <base> origin/master -- src/fragments/14/fragment14_FA520.c \
+        src/fragments/14/fragment14_104FC0.c hand_asm                                   # hooked code changed?
+
+If both are empty, rebase, rebuild (`wsl_build.sh`, then `wsl_build.sh mod`) and run the
+three test layers. The checksums should not change. If a hooked function has been
+decompiled, a fresh extract no longer writes its `.s` file, which `modtool.py` needs (an
+old copy may linger in `asm/` and hide this until the next `wsl_build.sh init`); if a
+symbol the mod uses was renamed, the mod fails to link and `mod/include/game.h` needs
+the new name.
+
+2026-10-11, `e06da865` → `e82d7f7`: both comparisons empty, no conflicts, the stock ROM
+matched, and the mod ROM and patch were byte for byte the same as before.
 
 ## Emulator harness
 
