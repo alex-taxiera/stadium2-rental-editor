@@ -1,0 +1,9 @@
+# In-place instruction changes to stock functions moved into the mod fragment.
+# See tools/mod/modtool.py.
+#
+# function      address   new instruction
+
+# ENTER menu: move the "(C) to check TM" hint down 8 pixels to make room for a
+# fourth menu entry. Icon y 0x6C -> 0x74, text y 0x70 -> 0x78.
+func_8130DA04   8130DB68  addiu       $a1, $v1, 0x74
+func_8130DA04   8130DDC8  addiu       $a1, $a1, 0x78

@@ -9,3 +9,6 @@ boot    func_8130251C   orig_func_8130251C
 
 # Draws the ENTER / EXCHANGE menu beside the detail panel.
 jump    func_8130DA04   Mod_DrawEnterMenu
+
+# Handles input while the ENTER menu is open.
+jump    func_8130EC9C   Mod_EnterMenuInput

@@ -1,0 +1,32 @@
+# From the White City map to the Free Battle rental picker (1P vs COM, Anything Goes).
+# Needs the `whitecity` savestate; see mod/NOTES.md.
+load whitecity
+wait 20
+press DPad R 6
+wait 40
+press DPad U 6
+wait 40
+# Free Battle
+press A 6
+wait 300
+# 1P, COM, Normal
+press A 6
+wait 40
+press A 6
+wait 40
+press A 6
+wait 40
+# Anything Goes, then the stage
+press A 6
+wait 120
+press A 6
+wait 120
+press A 6
+wait 300
+# Rental Only
+press DPad R 6
+wait 20
+press DPad R 6
+wait 20
+press A 6
+wait 300

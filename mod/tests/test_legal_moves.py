@@ -121,7 +121,18 @@ class LegalMovesTest(unittest.TestCase):
     def test_checked_in_table_is_current(self):
         self.assertTrue(gen.DEFAULT_OUT.exists(), "run tools/mod/gen_legal_moves.py")
         self.assertEqual(gen.DEFAULT_OUT.read_text(encoding="ascii"),
-                         gen.render(self.table, self.pokedex, include_events=False))
+                         gen.render(self.table, self.pokedex, gen.alphabetical_moves(self.moves),
+                                    include_events=False))
+
+    def test_alphabetical_order_lists_every_move_once(self):
+        order = gen.alphabetical_moves(self.moves)
+        self.assertEqual(sorted(order), list(range(1, 252)))
+        by_number = {number: name for name, number in self.moves.items() if not name.startswith("hiddenpower")}
+        self.assertEqual([by_number[n] for n in order[:4]], ["absorb", "acid", "acidarmor", "aeroblast"])
+        self.assertEqual(by_number[order[-1]], "zapcannon")
+        # Sorted the way the game spells them: FAINT ATTACK, not Feint Attack.
+        self.assertLess(order.index(self.moves["feintattack"]), order.index(self.moves["falseswipe"]))
+        self.assertLess(order.index(self.moves["visegrip"]), order.index(self.moves["vinewhip"]))
 
     @unittest.skipUnless(RENTALS.is_dir(), "stock rental tables not cached")
     def test_stock_rentals(self):
