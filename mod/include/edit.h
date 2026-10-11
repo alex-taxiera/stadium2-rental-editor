@@ -53,6 +53,8 @@ s32 Edit_SlotCount(Pokemon *mon);
 s32 Edit_Knows(Pokemon *mon, s32 move, s32 exceptSlot);
 s32 Edit_HpDv(Pokemon *mon);
 s32 Edit_GetDv(Pokemon *mon, s32 row);
+s32 Edit_MoveType(Pokemon *mon, s32 move);
+s32 Edit_MovePower(Pokemon *mon, s32 move);
 
 /* edit_draw.c */
 void Edit_DrawWindow(DetailPanel *panel);

@@ -12,6 +12,9 @@
 #define DV_BIG_STEP 4
 #define LEVEL_BIG_STEP 10
 
+/* The stock panel waits this long before loading a model, so the editor does too. */
+#define MODEL_RELOAD_DELAY 2
+
 static s32 Edit_IsLegal(s32 species, s32 move) {
     return (sLegalMoves[species][move >> 3] >> (move & 7)) & 1;
 }
@@ -62,6 +65,59 @@ static void Edit_SetDv(Pokemon *mon, s32 row, s32 value) {
     s32 shift = (NUM_ROWS - 1 - row) * 4;
 
     mon->dvs = (mon->dvs & ~(0xF << shift)) | (value << shift);
+}
+
+/* Hidden Power is one of the sixteen types from Fighting to Dark: two bits each from
+ * the Attack and Defense DVs. */
+static s32 Edit_HiddenPowerType(Pokemon *mon) {
+    s32 type = (((mon->dvs >> 12) & 3) << 2) | ((mon->dvs >> 8) & 3);
+
+    type++;
+    if (type >= TYPE_BIRD) {
+        type++;
+    }
+    if (type >= TYPE_PHYSICAL_END) {
+        type += TYPE_FIRE - TYPE_PHYSICAL_END;
+    }
+    return type;
+}
+
+/* Its power, 31 to 70, comes from the top bit of each DV and the low bits of Special. */
+static s32 Edit_HiddenPowerPower(Pokemon *mon) {
+    s32 dvs = mon->dvs;
+    s32 topBits = (((dvs >> 15) & 1) << 3) | (((dvs >> 11) & 1) << 2) | (((dvs >> 7) & 1) << 1) | ((dvs >> 3) & 1);
+
+    return (5 * topBits + (dvs & 3)) / 2 + 31;
+}
+
+/* A move's type and power as this Pokemon would use it. */
+s32 Edit_MoveType(Pokemon *mon, s32 move) {
+    return move == MOVE_HIDDEN_POWER ? Edit_HiddenPowerType(mon) : Move_Type(move);
+}
+
+s32 Edit_MovePower(Pokemon *mon, s32 move) {
+    return move == MOVE_HIDDEN_POWER ? Edit_HiddenPowerPower(mon) : Move_Power(move);
+}
+
+/* Everything the DVs change about how the Pokemon looks. */
+static s32 Edit_Look(Pokemon *mon) {
+    s32 look = Pokemon_IsShiny(mon->dvs);
+
+    if (mon->species == SPECIES_UNOWN) {
+        look |= Unown_Letter(mon->dvs) << 1;
+    } else if (mon->species == SPECIES_SMEARGLE) {
+        look |= Smeargle_Paint(mon->dvs) << 1;
+    }
+    return look;
+}
+
+/* The model beside the panel and the icon in the list are made when a record is first
+ * shown, so both have to be asked for again. */
+static void Edit_ReloadLook(DetailPanel *panel) {
+    Pokemon *mon = panel->pokemon;
+
+    panel->modelTimer = MODEL_RELOAD_DELAY;
+    Icon_Load(((ListCell *)mon)->icon, 0, mon);
 }
 
 static s32 Edit_StatExpForTier(s32 tier) {
@@ -304,6 +360,7 @@ static void Edit_AdjustField(EditState *state, DetailPanel *panel, s32 steps, s3
     Pokemon *mon = panel->pokemon;
     s32 old;
     s32 value;
+    s32 look;
 
     if (state->col == COL_DV) {
         old = Edit_GetDv(mon, state->row);
@@ -312,7 +369,11 @@ static void Edit_AdjustField(EditState *state, DetailPanel *panel, s32 steps, s3
             value = toEnd < 0 ? 0 : MAX_DV;
         }
         if (value != old) {
+            look = Edit_Look(mon);
             Edit_SetDv(mon, state->row, value);
+            if (Edit_Look(mon) != look) {
+                Edit_ReloadLook(panel);
+            }
         }
     } else if (state->col == COL_STAT_EXP) {
         old = mon->statExp[state->row];
