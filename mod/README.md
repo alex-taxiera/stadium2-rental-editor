@@ -17,6 +17,9 @@ You need your own Pokémon Stadium 2 (USA) ROM:
 | Size | 64 MB (67,108,864 bytes) |
 | SHA-1 | `d8343e69a7dc63b869cf6361d87cde64444281d3` |
 
+The patch is attached to each release on this repository's Releases page.
+[CHANGELOG.md](CHANGELOG.md) says what each release changed.
+
 Apply `stadium2-rental-editor-us.bps` with any BPS patcher (Floating IPS, Rom Patcher
 JS), using a `.z64` ROM. Or use the one in this repository, which also takes `.v64` and
 `.n64` dumps and always writes `.z64`:
