@@ -42,8 +42,18 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
     (`client.reboot_core()`), and the set chosen from Registered POKéMON. The record came
     back with the same moves, PP, DVs `0xAAAA`, Stat Exp and level, the rental flag still
     set, and the stats recalculated to the same values.
+- **M6 in part.** `wsl_build.sh mod` also writes the release patch,
+  `build/stadium2-rental-editor-us.bps` (about 30 KB), made from the original ROM by
+  `tools/mod/bps.py`; applying it gives back the modified ROM exactly.
+  [README.md](README.md) is the user's guide and holds the checklist for real hardware.
+  - Checked: player 2 gets EDIT in a 1P vs 2P Free Battle and drives the editor with
+    controller 2, while controller 1 does nothing.
+  - Checked on a build that reports 4 MB of RAM (see "Memory"): editing, the shiny model
+    reload and a battle all work.
+  - Checked under Poké Cup rules in Free Battle: the level stops at 50 and 55.
 - Held items are left to the stock ITEM entry, which already handles rentals.
-- Nothing has been run on standalone ares or hardware yet.
+- Nothing has been run on standalone ares or hardware yet. BizHawk's Ares64 core is the
+  same emulation core as standalone ares.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
   before entering it loses the edit. The stock detail panel and the battle menu label
   Hidden Power as Normal, as they do in the unmodified game.
@@ -55,9 +65,9 @@ The build runs in WSL (Ubuntu). From the repo root inside WSL:
     python3 tools/mod/check_rom.py <path-to-rom>   # verify + install baserom
     tools/mod/wsl_build.sh init                    # first time
     tools/mod/wsl_build.sh                         # stock ROM, must match the original
-    tools/mod/wsl_build.sh mod                     # build/pokestadiumgs-us-mod.z64
+    tools/mod/wsl_build.sh mod                     # build/pokestadiumgs-us-mod.z64 and the .bps patch
     tools/mod/wsl_build.sh pull-asm                # copy asm/ back for reading
-    python3 -m unittest discover -s mod/tests      # 63 tests
+    python3 -m unittest discover -s mod/tests      # 78 tests
 
 `wsl_build.sh` mirrors the sources to `~/stadium2-build` (native ext4) because building
 on the Windows drive is slow, then copies the ROMs, map and ELF back into `build/`.
@@ -373,6 +383,31 @@ the battle code, so the editor works out its type and power itself (`Edit_MoveTy
 `Edit_MovePower`). Nicknames tint a Pokémon (`func_8003F5AC`, from the name, OT name and
 ID), but DVs play no part in that.
 
+## Memory
+
+`Util_InitMainPools` gives the main pool everything from `D_80134470` to the end of RAM
+as reported by `osGetMemSize()`: about 2.9 MB without an Expansion Pak, 7.1 MB with one.
+`D_800871F4` holds the RAM size and `D_800871F0` the amount above 4 MB. The pool's free
+byte count is at `D_800CCDB0 + 0x1C` (`0x800CCDCC`).
+
+The entry screen (`func_813029F0`, fragment 14's only way in) pushes the pool state,
+loads its assets, calls `func_8130251C` (the mod's boot hook, so the mod fragment is
+allocated inside that state) and pops the state on the way out, which frees the mod.
+
+Measured in the rental picker with the mod loaded (0x4AC0 bytes at `0x80253290`):
+
+| RAM | Free in the pool |
+|---|---|
+| 8 MB | `0x427CB0` (4.4 MB) |
+| 4 MB | `0x27CB0` (163 KB) |
+
+The figure does not move while a rental is opened, edited, made shiny and entered: the
+screen allocates what it needs up front. Without the mod the 4 MB figure would be 19 KB
+higher. In the battle that follows, 4 MB leaves `0x1E2A0` free, with the mod unloaded.
+
+BizHawk's Ares64 core always has 8 MB. `tools/mod/make_4mb_rom.py` writes a test copy of
+a ROM whose `osGetMemSize()` returns 4 MB; run it from power on, not from a savestate.
+
 ## Fragment map
 
 `D_800CC630`: 240 entries of `{base, size}`, indexed by fragment ID. `Memmap_GetFragmentVaddr`
@@ -396,6 +431,10 @@ load, read, find, write, eval). BizHawk lives in `.emu/BizHawk`; output in `.emu
 - `tools/mod/emu.sh script mod/lua/goto_rental.txt` replays that path from `whitecity`.
 - A savestate carries the cartridge's save data with it, so to test saving, reset with
   `eval client.reboot_core()` and walk in from the title screen instead of loading one.
+- `player 2` makes the following presses come from controller 2. That needs
+  `"P2Controller": 1` in the Ares64 section of `config.ini`, and savestates made with one
+  controller then stop loading (the load reports success and changes nothing), so set it
+  back to 0 afterwards. With two controllers, Free Battle offers 1P vs 2P: A, Down, A.
 - Savestates: `whitecity`, `fb_rules`, `fb_entry`, `fb_rental` (stock ROM). A state taken
   with fragment 14 loaded contains that build's mod code, so after rebuilding start from
   `whitecity`, which predates the entry screen.
@@ -455,8 +494,10 @@ data), the fragment map (240 entries, ID 0x40 free), the ENTER menu's handlers a
 they are shared by every mode, that an edited record reaches battle, and that a
 registered edited team loads back unchanged after a reset. Remaining:
 
-1. Free main-pool RAM while the picker is open (`main_pool_get_available`), especially on
-   a 4 MB console.
-2. Where cup level rules are stored (`D_82B0865C` and the rule flag word are leads).
-3. Whether two players can have the picker open at once; the editor keeps one state.
-4. How the existing ITEM picker scrolls, in case its widget suits the stat editor.
+1. Where cup level rules are stored (`D_82B0865C` and the rule flag word are leads).
+2. Whether EDIT behaves in the Stadium cups and Gym Leader Castle, which use the same
+   entry screen under other rule sets.
+3. How the existing ITEM picker scrolls, in case its widget suits the stat editor.
+
+Players pick one after another on the same screen, each with their own controller
+(`panel->0x37`), so the editor's single state is enough.

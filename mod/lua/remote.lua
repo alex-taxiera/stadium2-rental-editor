@@ -7,6 +7,7 @@
 --   press <buttons> [frames]   hold e.g. "A" or "A+DPad D" (default 4 frames), then release
 --   hold <buttons> <frames> [name]   hold, and screenshot to <name>.png while held
 --   stick <x> <y> [frames]     hold the analog stick (-127..127)
+--   player <1-4>               which controller press, hold and stick drive (default 1)
 --   wait <frames>
 --   shot <name>                screenshot to <dir>/<name>.png
 --   save <name> / load <name>  savestate <dir>/<name>.State
@@ -27,6 +28,7 @@ local done_path = dir .. "\\done.txt"
 
 local RDRAM = "RDRAM"
 local out = {}
+local player = 1
 
 local function log(s) out[#out + 1] = s end
 
@@ -39,8 +41,8 @@ end
 
 local function advance(frames, pad, analog)
     for _ = 1, frames do
-        if pad then joypad.set(pad, 1) end
-        if analog then joypad.setanalog(analog, 1) end
+        if pad then joypad.set(pad, player) end
+        if analog then joypad.setanalog(analog, player) end
         emu.frameadvance()
     end
 end
@@ -74,7 +76,7 @@ function commands.hold(args)
     end
     advance(tonumber(args[at]) or 30, pad)
     if args[at + 1] then
-        joypad.set(pad, 1)
+        joypad.set(pad, player)
         client.screenshot(dir .. "\\" .. args[at + 1] .. ".png")
         log("shot " .. args[at + 1] .. ".png")
     end
@@ -84,6 +86,11 @@ end
 function commands.stick(args)
     advance(tonumber(args[3]) or 4, nil, { ["X Axis"] = tonumber(args[1]), ["Y Axis"] = tonumber(args[2]) })
     advance(2)
+end
+
+function commands.player(args)
+    player = tonumber(args[1])
+    assert(player and player >= 1 and player <= 4, "player must be 1-4")
 end
 
 function commands.wait(args) advance(tonumber(args[1]) or 1) end
