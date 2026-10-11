@@ -82,7 +82,11 @@ What can be changed:
 - **DVs** for Attack, Defense, Speed and Special, 0–15. The HP DV follows from the other
   four and is shown greyed.
 - **Stat Exp** for all five stats, 0–65535, in the 64 steps that change the stat.
-- **Held item**: use the game's own ITEM entry, as before.
+- **Held item**: use the game's own ITEM entry, as before. Its list now has every item
+  the game counts as worth holding in a battle, 42 of them, where the original offers six
+  berries plus whatever a connected Game Pak owns. That goes for every Pokémon on the
+  screen, not only rentals. The game's own limits still apply: an item a team-mate
+  already holds, or one that only works for another species, cannot be taken.
 
 The top line of the editor shows what the DVs decide besides stats, each only when it
 applies: the gender symbol, `SHINY`, Unown's letter, and Hidden Power's type and power
@@ -106,7 +110,7 @@ A registered team keeps its edits.
 ## What has been tested
 
 Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts. Most of
-it is now an automated suite (`mod/tests/emu`, 23 scenarios) that plays the editor and
+it is now an automated suite (`mod/tests/emu`, 25 scenarios) that plays the editor and
 checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 
 - Moves, level, DVs and Stat Exp edited and carried into a battle.
@@ -115,6 +119,8 @@ checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
   read back byte for byte from a registered team after a console reset. The ten-character
   limit, an empty name, backing out, and the cursor wrapping at every edge.
 - A registered team reloaded after a console reset with its edits intact.
+- The ITEM list holding all 42 items, and one from beyond the original six (Leftovers)
+  entered with a rental.
 - EDIT from Free Battle and from Register POKéMON.
 - Under Poké Cup rules the level stops at 50 and 55.
 - A second player editing with controller 2, with controller 1 ignored meanwhile.
@@ -169,7 +175,7 @@ the patch and of the ROM it produces. A patch you were given can be checked agai
 same file.
 
 The mod leaves the decompilation's sources untouched. Its code is one new overlay stored
-in an unused part of the ROM, and three functions of the entry screen are replaced by
+in an unused part of the ROM, and four functions of the entry screen are replaced by
 jumps into it. [NOTES.md](NOTES.md) has the details.
 
 This is built on [michiiik/pokestadiumgs](https://github.com/michiiik/pokestadiumgs), a

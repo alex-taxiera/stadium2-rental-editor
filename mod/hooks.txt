@@ -12,3 +12,6 @@ jump    func_8130DA04   Mod_DrawEnterMenu
 
 # Handles input while the ENTER menu is open.
 jump    func_8130EC9C   Mod_EnterMenuInput
+
+# Sets up the ITEM list from the mask of items on offer.
+jump    func_81306B64   Mod_ItemListInit
