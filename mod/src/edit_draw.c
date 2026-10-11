@@ -26,6 +26,21 @@
 #define LIST_ACCURACY_X 458
 #define LIST_PP_X 516
 
+/* The keyboard: the name's ten cells on the title row, over the grid of keys. Both
+ * start at KEY_X. A cell not yet typed in has a line under it. */
+#define KEY_X 138
+#define KEY_Y 46
+#define KEY_WIDTH 30
+#define KEY_HEIGHT 20
+#define KEY_SPACING 22
+#define WIDE_KEY_Y 142
+#define WIDE_KEY_WIDTH (KEY_WIDTH * WIDE_KEY_SPAN)
+#define KEY_BOX_RISE 2 /* how far the cursor's box starts above the text */
+#define NAME_CELL_WIDTH 22
+#define NAME_LINE_Y 17
+#define NAME_LINE_WIDTH 16
+#define NAME_LINE_HEIGHT 2
+
 /* The inside of the ENTER menu box, relative to the panel; used for key hints. */
 #define SIDEBAR_X (ENTER_MENU_X + 7)
 #define SIDEBAR_Y 9
@@ -51,6 +66,12 @@ static char sDash[] = "-";
 static char sSlash[] = "/";
 static char sShiny[] = "SHINY";
 static char sLetter[] = "LETTER";
+static char sName[] = "NAME";
+static char sNickname[] = "NICKNAME";
+static char sLower[] = "lower";
+static char sUpper[] = "UPPER";
+static char sDelete[] = "DEL";
+static char sEnd[] = "END";
 
 static char sHp[] = "HP";
 static char sAttack[] = "ATTACK";
@@ -67,6 +88,12 @@ static char sHintOk[] = "A: ok";
 static char sHintPick[] = "A: pick";
 static char sHintBack[] = "B: back";
 static char sHintPage[] = "Sideways: page";
+static char sHintType[] = "A: type";
+static char sHintDelete[] = "B: delete";
+static char sHintCase[] = "L R: case";
+static char sHintEnd[] = "START: end";
+
+#define MAX_HINTS 4
 
 static void Edit_White(void) {
     Text_SetColor(0xFF, 0xFF, 0xFF, 0xFF);
@@ -84,14 +111,18 @@ static void Edit_Gold(void) {
     Text_SetColor(0xFF, 0xC8, 0x40, 0xFF);
 }
 
+static void Edit_Yellow(void) {
+    Text_SetColor(0xFF, 0xFF, 0, 0xFF);
+}
+
 /* Yellow marks the field the cursor is on, green one whose value is being changed. */
 static void Edit_FieldColor(EditState *state, s32 col, s32 row) {
-    if (state->col != col || state->row != row) {
+    if (state->onName || state->col != col || state->row != row) {
         Edit_White();
     } else if (state->mode == EDIT_ADJUST) {
         Text_SetColor(0x60, 0xFF, 0x60, 0xFF);
     } else {
-        Text_SetColor(0xFF, 0xFF, 0, 0xFF);
+        Edit_Yellow();
     }
 }
 
@@ -154,13 +185,18 @@ static void Edit_DrawFields(EditState *state, Pokemon *mon) {
     s32 rowY;
 
     Edit_Heading();
-    Text_Draw(x + MOVE_X, y + TITLE_Y, sTitle);
+    Text_Draw(x + MOVE_X, y + TITLE_Y, sName);
     Text_Draw(x + MOVE_X, y + HEADER_Y, sMoves);
     Edit_DrawRight(x + PP_X, y + HEADER_Y, sPP);
     Edit_DrawRight(x + DV_X, y + HEADER_Y, sDV);
     Edit_DrawRight(x + STAT_EXP_X, y + HEADER_Y, sStatExp);
-    Edit_White();
+    if (state->onName) {
+        Edit_Yellow();
+    } else {
+        Edit_White();
+    }
     Text_Draw(x + NAME_X, y + TITLE_Y, mon->nickname);
+    Edit_White();
     Text_Draw(x + NAME_X + Text_Width(MENU_FONT, 1, mon->nickname), y + TITLE_Y, Pokemon_GenderSymbol(mon));
     Edit_DrawTraits(mon, x + TRAIT_X, y + TITLE_Y);
 
@@ -218,7 +254,7 @@ static void Edit_DrawMoveList(EditState *state, Pokemon *mon) {
         s32 rowY = y + LIST_ROW_Y + LIST_ROW_SPACING * row;
 
         if (index == state->cursor) {
-            Text_SetColor(0xFF, 0xFF, 0, 0xFF);
+            Edit_Yellow();
         } else if (move != EDIT_REMOVE && Edit_Knows(mon, move, state->row)) {
             Edit_Grey();
         } else {
@@ -241,16 +277,121 @@ static void Edit_DrawMoveList(EditState *state, Pokemon *mon) {
     }
 }
 
+/* The keyboard's filled parts, which go down before its text: a box behind the key the
+ * cursor is on, and a line under each cell of the name still to be typed, the next one
+ * in yellow. */
+static void Edit_DrawNameBoxes(EditState *state) {
+    s32 x = EDIT_WINDOW_X + KEY_X;
+    s32 y = EDIT_WINDOW_Y;
+    s32 i;
+
+    if (state->keyRow == KEY_ROW_WIDE) {
+        Gfx_FillRectRgb(x + WIDE_KEY_WIDTH * (state->keyCol / WIDE_KEY_SPAN), y + WIDE_KEY_Y - KEY_BOX_RISE,
+                        WIDE_KEY_WIDTH, KEY_HEIGHT, 0x10, 0x10, 0x80);
+    } else {
+        Gfx_FillRectRgb(x + KEY_WIDTH * state->keyCol, y + KEY_Y + KEY_SPACING * state->keyRow - KEY_BOX_RISE,
+                        KEY_WIDTH, KEY_HEIGHT, 0x10, 0x10, 0x80);
+    }
+    for (i = state->nameLength; i < MAX_NAME_LENGTH; i++) {
+        if (i == state->nameLength) {
+            Gfx_FillRectRgb(x + NAME_CELL_WIDTH * i, y + TITLE_Y + NAME_LINE_Y, NAME_LINE_WIDTH,
+                            NAME_LINE_HEIGHT, 0xFF, 0xFF, 0);
+        } else {
+            Gfx_FillRectRgb(x + NAME_CELL_WIDTH * i, y + TITLE_Y + NAME_LINE_Y, NAME_LINE_WIDTH,
+                            NAME_LINE_HEIGHT, 0x90, 0x90, 0xA0);
+        }
+    }
+}
+
+/* Measuring text is slow, and the keys never change, so each key's place in its cell
+ * is worked out once when the keyboard opens. */
+static void Edit_MeasureKeys(EditState *state) {
+    char key[2];
+    s32 page;
+    s32 row;
+    s32 col;
+
+    key[1] = '\0';
+    for (page = 0; page < NUM_PAGES; page++) {
+        for (row = 0; row < KEY_ROWS; row++) {
+            for (col = 0; col < KEY_COLS; col++) {
+                key[0] = Edit_NameKey(page, row, col);
+                state->keyInset[page][row][col] = (KEY_WIDTH - Text_Width(MENU_FONT, 1, key)) / 2;
+            }
+        }
+    }
+    state->keysMeasured = TRUE;
+}
+
+static void Edit_DrawName(EditState *state) {
+    s32 x = EDIT_WINDOW_X + KEY_X;
+    s32 y = EDIT_WINDOW_Y;
+    char *wideKeys[NUM_WIDE_KEYS];
+    char key[2];
+    s32 row;
+    s32 col;
+    s32 i;
+
+    if (!state->keysMeasured) {
+        Edit_MeasureKeys(state);
+    }
+    key[1] = '\0';
+
+    Edit_Heading();
+    Text_Draw(EDIT_WINDOW_X + MOVE_X, y + TITLE_Y, sNickname);
+
+    Edit_White();
+    for (i = 0; i < state->nameLength; i++) {
+        key[0] = state->name[i];
+        Text_Draw(x + NAME_CELL_WIDTH * i + (NAME_LINE_WIDTH - Text_Width(MENU_FONT, 1, key)) / 2, y + TITLE_Y, key);
+    }
+
+    for (row = 0; row < KEY_ROWS; row++) {
+        for (col = 0; col < KEY_COLS; col++) {
+            key[0] = Edit_NameKey(state->keyPage, row, col);
+            if (row == state->keyRow && col == state->keyCol) {
+                Edit_Yellow();
+            }
+            Text_Draw(x + KEY_WIDTH * col + state->keyInset[state->keyPage][row][col],
+                      y + KEY_Y + KEY_SPACING * row, key);
+            if (row == state->keyRow && col == state->keyCol) {
+                Edit_White();
+            }
+        }
+    }
+
+    /* The first wide key names the page it switches to, as on the Game Boy. */
+    wideKeys[KEY_CASE] = state->keyPage == PAGE_UPPER ? sLower : sUpper;
+    wideKeys[KEY_DELETE] = sDelete;
+    wideKeys[KEY_END] = sEnd;
+    for (i = 0; i < NUM_WIDE_KEYS; i++) {
+        if (state->keyRow == KEY_ROW_WIDE && state->keyCol / WIDE_KEY_SPAN == i) {
+            Edit_Yellow();
+        } else {
+            Edit_White();
+        }
+        Text_Draw(x + WIDE_KEY_WIDTH * i + (WIDE_KEY_WIDTH - Text_Width(MENU_FONT, 1, wideKeys[i])) / 2,
+                  y + WIDE_KEY_Y, wideKeys[i]);
+    }
+}
+
 /* The editor proper: a window over the party box. */
 void Edit_DrawWindow(DetailPanel *panel) {
     EditState *state = Edit_GetState();
 
     Window_Draw(EDIT_WINDOW_X, EDIT_WINDOW_Y, EDIT_WINDOW_WIDTH, EDIT_WINDOW_HEIGHT);
 
+    if (state->mode == EDIT_NAME) {
+        gSPDisplayList(gDisplayListHead++, D_80094D90);
+        Edit_DrawNameBoxes(state);
+    }
+
     gSPDisplayList(gDisplayListHead++, D_80094F50);
     Text_Begin();
     Text_SetFont(MENU_FONT, 1);
-    if (state->mode == EDIT_MOVE_LIST) {
+    if (state->mode == EDIT_NAME) {
+        Edit_DrawName(state);
+    } else if (state->mode == EDIT_MOVE_LIST) {
         Edit_DrawMoveList(state, panel->pokemon);
     } else {
         Edit_DrawFields(state, panel->pokemon);
@@ -263,10 +404,11 @@ void Edit_DrawSidebar(DetailPanel *panel) {
     EditState *state = Edit_GetState();
     s32 x = panel->x;
     s32 y = panel->y;
-    char *lines[3];
+    char *lines[MAX_HINTS];
     s32 i;
 
     lines[2] = NULL;
+    lines[3] = NULL;
     if (state->mode == EDIT_FIELDS) {
         lines[0] = sHintChange;
         lines[1] = sHintDone;
@@ -274,6 +416,11 @@ void Edit_DrawSidebar(DetailPanel *panel) {
         lines[0] = sHintAdjust;
         lines[1] = sHintEnds;
         lines[2] = sHintOk;
+    } else if (state->mode == EDIT_NAME) {
+        lines[0] = sHintType;
+        lines[1] = sHintDelete;
+        lines[2] = sHintCase;
+        lines[3] = sHintEnd;
     } else {
         lines[0] = sHintPick;
         lines[1] = sHintBack;
@@ -290,7 +437,7 @@ void Edit_DrawSidebar(DetailPanel *panel) {
     Text_Draw(x + ENTER_MENU_X + ENTER_MENU_TITLE_X - Text_Width(MENU_FONT, 1, sTitle) / 2,
               y + ENTER_MENU_TITLE_Y, sTitle);
     Edit_White();
-    for (i = 0; i < 3 && lines[i] != NULL; i++) {
+    for (i = 0; i < MAX_HINTS && lines[i] != NULL; i++) {
         Text_Draw(x + SIDEBAR_TEXT_X, y + SIDEBAR_TEXT_Y + SIDEBAR_SPACING * i, lines[i]);
     }
     Text_End();

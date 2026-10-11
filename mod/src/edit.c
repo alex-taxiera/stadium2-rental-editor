@@ -113,7 +113,7 @@ static s32 Edit_Look(Pokemon *mon) {
 
 /* The model beside the panel and the icon in the list are made when a record is first
  * shown, so both have to be asked for again. */
-static void Edit_ReloadLook(DetailPanel *panel) {
+void Edit_ReloadLook(DetailPanel *panel) {
     Pokemon *mon = panel->pokemon;
 
     panel->modelTimer = MODEL_RELOAD_DELAY;
@@ -176,6 +176,7 @@ void Edit_Open(DetailPanel *panel) {
     state->mode = EDIT_FIELDS;
     state->col = COL_MOVES;
     state->row = 0;
+    state->onName = FALSE;
     state->repeatTimer = 0;
     state->panel = panel;
 }
@@ -202,13 +203,14 @@ static s32 Edit_FieldValid(Pokemon *mon, s32 col, s32 row) {
     return TRUE;
 }
 
-static void Edit_MoveField(EditState *state, Pokemon *mon, s32 colStep, s32 rowStep) {
+/* Returns whether there was a field to move to. */
+static s32 Edit_MoveField(EditState *state, Pokemon *mon, s32 colStep, s32 rowStep) {
     s32 col = state->col + colStep;
     s32 row = state->row + rowStep;
     s32 i;
 
     if (col < 0 || col >= NUM_COLS) {
-        return;
+        return FALSE;
     }
     if (rowStep != 0) {
         /* Skip rows that hold nothing, such as unused move slots. */
@@ -228,11 +230,12 @@ static void Edit_MoveField(EditState *state, Pokemon *mon, s32 colStep, s32 rowS
         }
     }
     if (!Edit_FieldValid(mon, col, row)) {
-        return;
+        return FALSE;
     }
     state->col = col;
     state->row = row;
     Sound_Play(SOUND_CURSOR);
+    return TRUE;
 }
 
 /* Fills the list with every move the species may know, in alphabetical order.
@@ -299,10 +302,11 @@ static void Edit_MoveListCursor(EditState *state, s32 delta) {
     Sound_Play(SOUND_CURSOR);
 }
 
-/* Up/down held long enough repeats, so long lists and big numbers are quick. */
-static s32 Edit_RepeatedButtons(EditState *state, Pad *pad) {
+/* The buttons to act on this frame: those just pressed, plus any of `repeating` held
+ * long enough, so long lists, big numbers and the keyboard are quick. */
+s32 Edit_RepeatedButtons(EditState *state, Pad *pad, s32 repeating) {
     s32 buttons = pad->pressed;
-    s32 held = pad->held & (BTN_DUP | BTN_DDOWN);
+    s32 held = pad->held & repeating;
 
     if (held == 0 || (pad->pressed & held)) {
         state->repeatTimer = 0;
@@ -327,7 +331,9 @@ static void Edit_UpdateFields(EditState *state, Pad *pad, DetailPanel *panel) {
     if (buttons & BTN_A) {
         Sound_Play(SOUND_CONFIRM);
         state->repeatTimer = 0;
-        if (state->col == COL_MOVES && state->row != ROW_LEVEL) {
+        if (state->onName) {
+            Edit_OpenName(state, panel);
+        } else if (state->col == COL_MOVES && state->row != ROW_LEVEL) {
             Edit_BuildList(state, mon);
             state->mode = EDIT_MOVE_LIST;
         } else {
@@ -336,8 +342,21 @@ static void Edit_UpdateFields(EditState *state, Pad *pad, DetailPanel *panel) {
         return;
     }
 
+    /* The name sits above every column: up from a column's top field reaches it, and
+     * down goes back to that field. */
+    if (state->onName) {
+        if (buttons & BTN_DDOWN) {
+            state->onName = FALSE;
+            Sound_Play(SOUND_CURSOR);
+        }
+        return;
+    }
+
     if (buttons & BTN_DUP) {
-        Edit_MoveField(state, mon, 0, -1);
+        if (!Edit_MoveField(state, mon, 0, -1)) {
+            state->onName = TRUE;
+            Sound_Play(SOUND_CURSOR);
+        }
     } else if (buttons & BTN_DDOWN) {
         Edit_MoveField(state, mon, 0, 1);
     } else if (buttons & BTN_DLEFT) {
@@ -404,7 +423,7 @@ static void Edit_AdjustField(EditState *state, DetailPanel *panel, s32 steps, s3
 }
 
 static void Edit_UpdateAdjust(EditState *state, Pad *pad, DetailPanel *panel) {
-    s32 buttons = Edit_RepeatedButtons(state, pad);
+    s32 buttons = Edit_RepeatedButtons(state, pad, BTN_DUP | BTN_DDOWN);
 
     if (pad->pressed & (BTN_A | BTN_B)) {
         Sound_Play(SOUND_CONFIRM);
@@ -429,7 +448,7 @@ static void Edit_UpdateAdjust(EditState *state, Pad *pad, DetailPanel *panel) {
 
 static void Edit_UpdateList(EditState *state, Pad *pad, DetailPanel *panel) {
     Pokemon *mon = panel->pokemon;
-    s32 buttons = Edit_RepeatedButtons(state, pad);
+    s32 buttons = Edit_RepeatedButtons(state, pad, BTN_DUP | BTN_DDOWN);
     s32 slot = state->row;
     s32 move;
 
@@ -476,6 +495,8 @@ void Edit_Update(DetailPanel *panel, Pad *pad) {
         Edit_UpdateFields(state, pad, panel);
     } else if (state->mode == EDIT_ADJUST) {
         Edit_UpdateAdjust(state, pad, panel);
+    } else if (state->mode == EDIT_NAME) {
+        Edit_UpdateName(state, pad, panel);
     } else {
         Edit_UpdateList(state, pad, panel);
     }

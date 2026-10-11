@@ -1,9 +1,9 @@
 # Pokémon Stadium 2 rental editor
 
 A patch for Pokémon Stadium 2 (USA) that adds an **EDIT** entry to the menu shown when
-you pick a rental Pokémon. It opens an editor for the rental's moves, level, DVs and
-Stat Exp, limited to what the Game Boy games allow, and the edited Pokémon is what
-enters the battle or the registered team.
+you pick a rental Pokémon. It opens an editor for the rental's nickname, moves, level,
+DVs and Stat Exp, limited to what the Game Boy games allow, and the edited Pokémon is
+what enters the battle or the registered team.
 
 The patch is a BPS file. It contains only the changes, not the game.
 
@@ -43,7 +43,7 @@ will be, with stats recalculated as you change things.
 
 | Where | Button | Does |
 |---|---|---|
-| Moving around | D-pad | move between moves, level, DVs and Stat Exp |
+| Moving around | D-pad | move between moves, level, DVs and Stat Exp; Up from the top row reaches the name |
 | | A | change the field under the cursor |
 | | B | close the editor, back to Yes / No |
 | On a number | Up / Down | one step (hold to repeat) |
@@ -54,9 +54,20 @@ will be, with stats recalculated as you change things.
 | | Left / Right | a page |
 | | A | take the move |
 | | B | back without changing |
+| On the keyboard | D-pad | move between keys (hold to repeat; wraps at the edges) |
+| | A | type the key, or use `lower` / `UPPER`, `DEL`, `END` |
+| | B | delete the last character; with none left, back without changing |
+| | L or R | switch between upper and lower case |
+| | Start | jump to `END` |
 
 What can be changed:
 
+- **Nickname**, up to 10 characters, on a keyboard laid out like the Game Boy's. It
+  offers what a nickname can be typed with in Red, Blue, Yellow, Gold, Silver or Crystal:
+  letters in both cases, space, `- ? ! / . ,`, `× ( ) : ; [ ]`, the PK and MN signs, and
+  ♂ ♀. `END` with nothing typed gives the species name back. As in the original game, a
+  nicknamed Pokémon is tinted a slightly different colour, so a rename changes how it
+  looks.
 - **Moves.** Any move the species or an earlier evolution learns in Red, Blue, Yellow,
   Gold, Silver or Crystal by level, TM/HM, tutor or breeding. Event-only moves are left
   out. A slot can be emptied as long as one move remains, and a move cannot be taken
@@ -83,7 +94,7 @@ A registered team keeps its edits.
 - Outside the editor the game labels Hidden Power as Normal, as the original does.
 - Moves are checked one at a time. Combinations that cannot exist on one Pokémon in the
   Game Boy games are not rejected.
-- Nicknames cannot be changed.
+- The original trainer's name and ID stay as the rental has them.
 - Only rentals get EDIT, not Pokémon read from a Game Pak.
 - USA version only.
 
@@ -94,13 +105,17 @@ Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts
 
 - Moves, level, DVs and Stat Exp edited and carried into a battle.
 - Shiny, gender, Unown's letter and Hidden Power shown and updated as DVs change.
+- Nicknames typed across both pages, special signs included; one shown in battle and
+  read back byte for byte from a registered team after a console reset. The ten-character
+  limit, an empty name, backing out, and the cursor wrapping at every edge.
 - A registered team reloaded after a console reset with its edits intact.
 - EDIT from Free Battle and from Register POKéMON.
 - Under Poké Cup rules the level stops at 50 and 55.
 - A second player editing with controller 2, with controller 1 ignored meanwhile.
 - A build made to believe the console has 4 MB of RAM (`tools/mod/make_4mb_rom.py`): the
-  entry screen keeps 163 KB of its memory pool free with the mod loaded, the editor
-  allocates nothing, and the battle starts normally.
+  entry screen keeps 160 KB of its memory pool free with the mod loaded, and the editor
+  and keyboard allocate nothing. (A battle on that build was run before the keyboard was
+  added; the mod is unloaded by then.)
 - The original ROM still builds byte for byte from the same tree, and the patch applied
   to it reproduces the modified ROM.
 
@@ -119,13 +134,15 @@ Leader Castle (they use the same entry screen), and the Japanese version.
    follow each change.
 6. Set Attack, Defense, Speed and Special DVs to 10. `SHINY` appears and the Pokémon in
    the lower panel changes colour.
-7. B, then Yes. The party box shows the Pokémon; Start, OK.
-8. Pick the opponent's team and start the battle. Check the moves and HP in battle.
-9. Leave and come back to the picker a few times, including after a battle.
-10. Two players: Free Battle → 1P vs 2P. Player 2 edits with controller 2.
-11. Start → **OK to Register**, switch the console off and on, and load the team from
+7. Up to the name, A. Type a name using both cases and a sign from the bottom row, then
+   Start, A. The lower panel shows the new name.
+8. B, then Yes. The party box shows the Pokémon; Start, OK.
+9. Pick the opponent's team and start the battle. Check the name, moves and HP in battle.
+10. Leave and come back to the picker a few times, including after a battle.
+11. Two players: Free Battle → 1P vs 2P. Player 2 edits with controller 2.
+12. Start → **OK to Register**, switch the console off and on, and load the team from
     Registered POKéMON.
-12. Repeat steps 3–8 with the Expansion Pak removed (or fitted, whichever you did not
+13. Repeat steps 3–9 with the Expansion Pak removed (or fitted, whichever you did not
     start with).
 
 If something goes wrong, the useful details are the step, whether the Expansion Pak was
