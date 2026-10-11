@@ -197,6 +197,17 @@ s32 func_8130CE3C(DetailPanel *panel);
 #define ENTER_MENU_ITEM_Y 0x26
 #define ENTER_MENU_ITEM_SPACING 0x15
 
+/* --- Item list (fragments 11 and 14) ---
+ *
+ * Items on offer are a mask with one bit per item id. The list built from it holds "No
+ * item" and then each item in the mask that the game classes as worth holding.
+ */
+
+#define ITEM_MASK_WORDS 8
+
+void func_81601A38(s32 *mask, s32 set); /* every bit of a mask on or off */
+#define ItemMask_Fill func_81601A38
+
 /* --- Screen regions and windows (fragment 11) ---
  *
  * The screen repaints a widget only when its region is dirty. A widget registers its
@@ -261,5 +272,6 @@ void func_800226C0(s32 id);
 void orig_func_8130251C(void);
 void orig_func_8130DA04(DetailPanel *panel, void *ctx);
 void orig_func_8130EC9C(DetailPanel *panel);
+void orig_func_81306B64(void *list, s32 x, s32 y, s32 arg3, s32 *available);
 
 #endif
