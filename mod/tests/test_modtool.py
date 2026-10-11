@@ -101,6 +101,37 @@ glabel func_80000400
             self.assertEqual(modtool.function_extent(path), (0x80000400, 12))
 
 
+class AsmPatchTest(unittest.TestCase):
+    SOURCE = """glabel func_80000400
+    /* 000400 80000400 27BDFFE8 */  addiu       $sp, $sp, -0x18
+    /* 000404 80000404 0C000200 */  jal         func_80000800
+    /* 000408 80000408 24A50070 */   addiu      $a1, $a1, 0x70
+"""
+
+    def test_replaces_the_instruction_at_an_address(self):
+        patched = modtool.apply_patches("func_80000400", self.SOURCE, [(0x80000408, "addiu $a1, $a1, 0x78")])
+        self.assertIn("/* 000408 80000408 24A50070 */   addiu $a1, $a1, 0x78", patched)
+        self.assertIn("jal         func_80000800", patched)
+
+    def test_unknown_address_is_an_error(self):
+        with self.assertRaises(ValueError):
+            modtool.apply_patches("func_80000400", self.SOURCE, [(0x80000410, "nop")])
+
+    def test_patch_file_format(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "asm_patches.txt"
+            path.write_text("# comment\nfunc_A 80000408 addiu $a1, $a1, 0x78  # why\n\nfunc_A 8000040C nop\n")
+            self.assertEqual(modtool.read_patches(path),
+                             {"func_A": [(0x80000408, "addiu $a1, $a1, 0x78"), (0x8000040C, "nop")]})
+            self.assertEqual(modtool.read_patches(Path(directory) / "missing.txt"), {})
+
+    def test_the_real_patch_file_only_touches_hooked_functions(self):
+        hooked = {h["function"] for h in modtool.read_hooks(REPO_ROOT / "mod" / "hooks.txt")}
+        patches = modtool.read_patches(REPO_ROOT / "mod" / "asm_patches.txt")
+        self.assertTrue(patches)
+        self.assertLessEqual(set(patches), hooked)
+
+
 MOD_ROM = REPO_ROOT / "build" / "pokestadiumgs-us-mod.z64"
 STOCK_ROM = REPO_ROOT / "build" / "pokestadiumgs-us.z64"
 GAME_ELF = REPO_ROOT / "build" / "pokestadiumgs-us.elf"

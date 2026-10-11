@@ -1,0 +1,421 @@
+#include "edit.h"
+
+#include "legal_moves.inc.c"
+
+#define REPEAT_DELAY 16
+#define REPEAT_RATE 3
+
+/* Stat Exp only matters through floor(ceil(sqrt(exp)) / 4), which runs from 0 to 63.
+ * The editor steps between those tiers so every press changes the stat. */
+#define MAX_STAT_EXP_TIER 63
+#define STAT_EXP_BIG_STEP 8
+#define DV_BIG_STEP 4
+#define LEVEL_BIG_STEP 10
+
+static s32 Edit_IsLegal(s32 species, s32 move) {
+    return (sLegalMoves[species][move >> 3] >> (move & 7)) & 1;
+}
+
+s32 Edit_MoveCount(Pokemon *mon) {
+    s32 count = 0;
+
+    while (count < MAX_MOVES && mon->moves[count] != 0) {
+        count++;
+    }
+    return count;
+}
+
+/* Move rows on offer: one per move, plus an empty one while there is room. */
+s32 Edit_SlotCount(Pokemon *mon) {
+    s32 count = Edit_MoveCount(mon);
+
+    return count < MAX_MOVES ? count + 1 : MAX_MOVES;
+}
+
+s32 Edit_Knows(Pokemon *mon, s32 move, s32 exceptSlot) {
+    s32 i;
+
+    for (i = 0; i < MAX_MOVES; i++) {
+        if (i != exceptSlot && mon->moves[i] == move) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/* The HP DV is not stored: it is the low bit of each of the other four. */
+s32 Edit_HpDv(Pokemon *mon) {
+    s32 dvs = mon->dvs;
+
+    return (((dvs >> 12) & 1) << 3) | (((dvs >> 8) & 1) << 2) | (((dvs >> 4) & 1) << 1) | (dvs & 1);
+}
+
+/* Rows 1-4 are Attack, Defense, Speed and Special, packed high nibble first. */
+s32 Edit_GetDv(Pokemon *mon, s32 row) {
+    if (row == ROW_HP) {
+        return Edit_HpDv(mon);
+    }
+    return (mon->dvs >> ((NUM_ROWS - 1 - row) * 4)) & 0xF;
+}
+
+static void Edit_SetDv(Pokemon *mon, s32 row, s32 value) {
+    s32 shift = (NUM_ROWS - 1 - row) * 4;
+
+    mon->dvs = (mon->dvs & ~(0xF << shift)) | (value << shift);
+}
+
+static s32 Edit_StatExpForTier(s32 tier) {
+    if (tier <= 0) {
+        return 0;
+    }
+    if (tier >= MAX_STAT_EXP_TIER) {
+        return MAX_STAT_EXP;
+    }
+    return (4 * tier - 1) * (4 * tier - 1) + 1;
+}
+
+static Rules *Edit_Rules(void) {
+    return *(Rules **)(gEntrySettings + ENTRY_SETTINGS_RULES);
+}
+
+static s32 Edit_MinLevel(void) {
+    s32 level = Edit_Rules()->minLevel;
+
+    return level < MIN_LEVEL ? MIN_LEVEL : level;
+}
+
+static s32 Edit_MaxLevel(void) {
+    s32 level = Edit_Rules()->maxLevel;
+
+    if (level > 100) {
+        level = 100;
+    }
+    return level < MIN_LEVEL ? MIN_LEVEL : level;
+}
+
+s32 Edit_CanEdit(DetailPanel *panel) {
+    Pokemon *mon = panel->pokemon;
+
+    return panel->mode == PANEL_MODE_ENTER && mon != NULL && (mon->flags & POKEMON_FLAG_RENTAL) &&
+           mon->species >= 1 && mon->species <= NUM_SPECIES;
+}
+
+s32 Edit_IsActive(DetailPanel *panel) {
+    EditState *state = Edit_GetState();
+
+    if (state->mode == EDIT_OFF || state->panel != panel) {
+        return FALSE;
+    }
+    /* The panel was closed or reused behind our back. */
+    if (panel->state != PANEL_MENU || !Edit_CanEdit(panel)) {
+        state->mode = EDIT_OFF;
+        return FALSE;
+    }
+    return TRUE;
+}
+
+void Edit_Open(DetailPanel *panel) {
+    EditState *state = Edit_GetState();
+
+    state->mode = EDIT_FIELDS;
+    state->col = COL_MOVES;
+    state->row = 0;
+    state->repeatTimer = 0;
+    state->panel = panel;
+}
+
+/* Stats follow from level, DVs and Stat Exp; the detail panel only repaints when asked. */
+static void Edit_Recalculate(DetailPanel *panel) {
+    Pokemon *mon = panel->pokemon;
+
+    Pokemon_RecalcStats(mon);
+    mon->hp = mon->stats[0];
+    panel->redraw = TRUE;
+}
+
+static s32 Edit_FieldValid(Pokemon *mon, s32 col, s32 row) {
+    if (row < 0 || row >= NUM_ROWS) {
+        return FALSE;
+    }
+    if (col == COL_MOVES) {
+        return row == ROW_LEVEL || row < Edit_SlotCount(mon);
+    }
+    if (col == COL_DV) {
+        return row != ROW_HP;
+    }
+    return TRUE;
+}
+
+static void Edit_MoveField(EditState *state, Pokemon *mon, s32 colStep, s32 rowStep) {
+    s32 col = state->col + colStep;
+    s32 row = state->row + rowStep;
+    s32 i;
+
+    if (col < 0 || col >= NUM_COLS) {
+        return;
+    }
+    if (rowStep != 0) {
+        /* Skip rows that hold nothing, such as unused move slots. */
+        while (row >= 0 && row < NUM_ROWS && !Edit_FieldValid(mon, col, row)) {
+            row += rowStep;
+        }
+    } else if (!Edit_FieldValid(mon, col, row)) {
+        for (i = 1; i < NUM_ROWS; i++) {
+            if (Edit_FieldValid(mon, col, row + i)) {
+                row += i;
+                break;
+            }
+            if (Edit_FieldValid(mon, col, row - i)) {
+                row -= i;
+                break;
+            }
+        }
+    }
+    if (!Edit_FieldValid(mon, col, row)) {
+        return;
+    }
+    state->col = col;
+    state->row = row;
+    Sound_Play(SOUND_CURSOR);
+}
+
+/* Fills the list with every move the species may know, in alphabetical order.
+ * The first entry removes the move when the Pokemon would still have one left. */
+static void Edit_BuildList(EditState *state, Pokemon *mon) {
+    s32 current = mon->moves[state->row];
+    s32 count = 0;
+    s32 i;
+
+    state->cursor = 0;
+    if (current != 0 && Edit_MoveCount(mon) > 1) {
+        state->list[count++] = EDIT_REMOVE;
+    }
+    for (i = 0; i < NUM_MOVES; i++) {
+        s32 move = sMoveOrder[i];
+
+        if (Edit_IsLegal(mon->species, move)) {
+            if (move == current) {
+                state->cursor = count;
+            }
+            state->list[count++] = move;
+        }
+    }
+    state->count = count;
+    state->top = state->cursor - EDIT_LIST_ROWS / 2;
+    if (state->top > count - EDIT_LIST_ROWS) {
+        state->top = count - EDIT_LIST_ROWS;
+    }
+    if (state->top < 0) {
+        state->top = 0;
+    }
+}
+
+static void Edit_RemoveMove(Pokemon *mon, s32 slot) {
+    s32 i;
+
+    for (i = slot; i < MAX_MOVES - 1; i++) {
+        mon->moves[i] = mon->moves[i + 1];
+        mon->pp[i] = mon->pp[i + 1];
+    }
+    mon->moves[MAX_MOVES - 1] = 0;
+    mon->pp[MAX_MOVES - 1] = 0;
+}
+
+static void Edit_MoveListCursor(EditState *state, s32 delta) {
+    s32 cursor = state->cursor + delta;
+
+    if (cursor < 0) {
+        cursor = 0;
+    }
+    if (cursor > state->count - 1) {
+        cursor = state->count - 1;
+    }
+    if (cursor == state->cursor) {
+        return;
+    }
+    state->cursor = cursor;
+    if (cursor < state->top) {
+        state->top = cursor;
+    }
+    if (cursor > state->top + EDIT_LIST_ROWS - 1) {
+        state->top = cursor - (EDIT_LIST_ROWS - 1);
+    }
+    Sound_Play(SOUND_CURSOR);
+}
+
+/* Up/down held long enough repeats, so long lists and big numbers are quick. */
+static s32 Edit_RepeatedButtons(EditState *state, Pad *pad) {
+    s32 buttons = pad->pressed;
+    s32 held = pad->held & (BTN_DUP | BTN_DDOWN);
+
+    if (held == 0 || (pad->pressed & held)) {
+        state->repeatTimer = 0;
+    } else if (++state->repeatTimer >= REPEAT_DELAY) {
+        state->repeatTimer = REPEAT_DELAY - REPEAT_RATE;
+        buttons |= held;
+    }
+    return buttons;
+}
+
+static void Edit_UpdateFields(EditState *state, Pad *pad, DetailPanel *panel) {
+    Pokemon *mon = panel->pokemon;
+    s32 buttons = pad->pressed;
+
+    if (buttons & BTN_B) {
+        Sound_Play(SOUND_CANCEL);
+        state->mode = EDIT_OFF;
+        /* Back on the stock menu, ready to confirm with Yes if that is allowed. */
+        panel->cursor = EnterMenu_YesDisabled(panel) ? 1 : 0;
+        return;
+    }
+    if (buttons & BTN_A) {
+        Sound_Play(SOUND_CONFIRM);
+        state->repeatTimer = 0;
+        if (state->col == COL_MOVES && state->row != ROW_LEVEL) {
+            Edit_BuildList(state, mon);
+            state->mode = EDIT_MOVE_LIST;
+        } else {
+            state->mode = EDIT_ADJUST;
+        }
+        return;
+    }
+
+    if (buttons & BTN_DUP) {
+        Edit_MoveField(state, mon, 0, -1);
+    } else if (buttons & BTN_DDOWN) {
+        Edit_MoveField(state, mon, 0, 1);
+    } else if (buttons & BTN_DLEFT) {
+        Edit_MoveField(state, mon, -1, 0);
+    } else if (buttons & BTN_DRIGHT) {
+        Edit_MoveField(state, mon, 1, 0);
+    }
+}
+
+static s32 Edit_Clamp(s32 value, s32 min, s32 max) {
+    if (value < min) {
+        return min;
+    }
+    return value > max ? max : value;
+}
+
+/* Changes the grabbed number: `steps` small steps, `bigSteps` big ones, or straight to
+ * an end of its range when `toEnd` is -1 or 1. */
+static void Edit_AdjustField(EditState *state, DetailPanel *panel, s32 steps, s32 bigSteps, s32 toEnd) {
+    Pokemon *mon = panel->pokemon;
+    s32 old;
+    s32 value;
+
+    if (state->col == COL_DV) {
+        old = Edit_GetDv(mon, state->row);
+        value = Edit_Clamp(old + steps + bigSteps * DV_BIG_STEP, 0, MAX_DV);
+        if (toEnd != 0) {
+            value = toEnd < 0 ? 0 : MAX_DV;
+        }
+        if (value != old) {
+            Edit_SetDv(mon, state->row, value);
+        }
+    } else if (state->col == COL_STAT_EXP) {
+        old = mon->statExp[state->row];
+        value = Edit_Clamp(StatExpSqrt(old) / 4 + steps + bigSteps * STAT_EXP_BIG_STEP, 0, MAX_STAT_EXP_TIER);
+        if (toEnd != 0) {
+            value = toEnd < 0 ? 0 : MAX_STAT_EXP_TIER;
+        }
+        value = Edit_StatExpForTier(value);
+        if (value != old) {
+            mon->statExp[state->row] = value;
+        }
+    } else {
+        old = mon->level;
+        value = Edit_Clamp(old + steps + bigSteps * LEVEL_BIG_STEP, Edit_MinLevel(), Edit_MaxLevel());
+        if (toEnd != 0) {
+            value = toEnd < 0 ? Edit_MinLevel() : Edit_MaxLevel();
+        }
+        if (value != old) {
+            mon->exp = Pokemon_ExpForLevel(mon->species, value);
+        }
+    }
+
+    if (value == old) {
+        return;
+    }
+    Edit_Recalculate(panel);
+    Sound_Play(SOUND_CURSOR);
+}
+
+static void Edit_UpdateAdjust(EditState *state, Pad *pad, DetailPanel *panel) {
+    s32 buttons = Edit_RepeatedButtons(state, pad);
+
+    if (pad->pressed & (BTN_A | BTN_B)) {
+        Sound_Play(SOUND_CONFIRM);
+        state->mode = EDIT_FIELDS;
+        return;
+    }
+
+    if (buttons & BTN_DUP) {
+        Edit_AdjustField(state, panel, 1, 0, 0);
+    } else if (buttons & BTN_DDOWN) {
+        Edit_AdjustField(state, panel, -1, 0, 0);
+    } else if (pad->pressed & BTN_DRIGHT) {
+        Edit_AdjustField(state, panel, 0, 1, 0);
+    } else if (pad->pressed & BTN_DLEFT) {
+        Edit_AdjustField(state, panel, 0, -1, 0);
+    } else if (pad->pressed & BTN_R) {
+        Edit_AdjustField(state, panel, 0, 0, 1);
+    } else if (pad->pressed & BTN_L) {
+        Edit_AdjustField(state, panel, 0, 0, -1);
+    }
+}
+
+static void Edit_UpdateList(EditState *state, Pad *pad, DetailPanel *panel) {
+    Pokemon *mon = panel->pokemon;
+    s32 buttons = Edit_RepeatedButtons(state, pad);
+    s32 slot = state->row;
+    s32 move;
+
+    if (pad->pressed & BTN_B) {
+        Sound_Play(SOUND_CANCEL);
+        state->mode = EDIT_FIELDS;
+        return;
+    }
+    if (pad->pressed & BTN_A) {
+        move = state->list[state->cursor];
+        if (move == EDIT_REMOVE) {
+            Edit_RemoveMove(mon, slot);
+            if (state->row >= Edit_SlotCount(mon)) {
+                state->row = Edit_SlotCount(mon) - 1;
+            }
+        } else if (Edit_Knows(mon, move, slot)) {
+            Sound_Play(SOUND_ERROR);
+            return;
+        } else {
+            mon->moves[slot] = move;
+            mon->pp[slot] = Move_MaxPP(move, mon->pp[slot]);
+        }
+        Sound_Play(SOUND_CONFIRM);
+        state->mode = EDIT_FIELDS;
+        panel->redraw = TRUE;
+        return;
+    }
+
+    if (buttons & BTN_DUP) {
+        Edit_MoveListCursor(state, -1);
+    } else if (buttons & BTN_DDOWN) {
+        Edit_MoveListCursor(state, 1);
+    } else if (pad->pressed & BTN_DLEFT) {
+        Edit_MoveListCursor(state, -EDIT_LIST_ROWS);
+    } else if (pad->pressed & BTN_DRIGHT) {
+        Edit_MoveListCursor(state, EDIT_LIST_ROWS);
+    }
+}
+
+void Edit_Update(DetailPanel *panel, Pad *pad) {
+    EditState *state = Edit_GetState();
+
+    if (state->mode == EDIT_FIELDS) {
+        Edit_UpdateFields(state, pad, panel);
+    } else if (state->mode == EDIT_ADJUST) {
+        Edit_UpdateAdjust(state, pad, panel);
+    } else {
+        Edit_UpdateList(state, pad, panel);
+    }
+}

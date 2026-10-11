@@ -3,6 +3,7 @@
 #
 #   tools/mod/emu.sh start [rom]        launch BizHawk with the remote script (default: built US ROM)
 #   tools/mod/emu.sh run 'press A' 'wait 60' 'shot title'    run commands, print their output
+#   tools/mod/emu.sh script mod/lua/goto_rental.txt          run the commands in a file
 #   tools/mod/emu.sh stop
 #
 # Commands are documented at the top of mod/lua/remote.lua. Screenshots, savestates
@@ -27,8 +28,8 @@ wait_for() {
 case "${1:-}" in
     start)
         rom="${2:-$ROOT/build/pokestadiumgs-us.z64}"
+        "$0" stop
         mkdir -p "$REMOTE"
-        rm -f "$REMOTE/ready.txt" "$REMOTE/cmd.txt" "$REMOTE/done.txt"
         export S2_REMOTE_DIR
         S2_REMOTE_DIR="$(cygpath -w "$REMOTE")"
         "$EMUHAWK" "--lua=$(cygpath -w "$ROOT/mod/lua/remote.lua")" "$(cygpath -w "$rom")" >/dev/null 2>&1 &
@@ -45,12 +46,22 @@ case "${1:-}" in
         wait_for "$REMOTE/done.txt"
         cat "$REMOTE/done.txt"
         ;;
+    script)
+        # Run the commands in a file, one per line.
+        mapfile -t lines < <(grep -v -E '^\s*(#|$)' "$2")
+        exec "$0" run "${lines[@]}"
+        ;;
     stop)
-        printf 'exit\n' > "$REMOTE/cmd.txt"
-        rm -f "$REMOTE/ready.txt"
+        # Ask nicely, then make sure: a leftover instance would answer the next commands.
+        if [[ -f "$REMOTE/ready.txt" ]]; then
+            printf 'exit\n' > "$REMOTE/cmd.txt"
+            sleep 2
+        fi
+        taskkill //IM EmuHawk.exe //F > /dev/null 2>&1 || true
+        rm -f "$REMOTE/ready.txt" "$REMOTE/cmd.txt" "$REMOTE/done.txt"
         ;;
     *)
-        echo "usage: $0 start [rom] | run <command>... | stop" >&2
+        echo "usage: $0 start [rom] | run <command>... | script <file> | stop" >&2
         exit 64
         ;;
 esac

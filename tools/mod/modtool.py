@@ -94,7 +94,39 @@ ASM_HEADER = """\
 """
 
 
-def write_asm(hooks: list, asm_dir: Path, out_dir: Path) -> None:
+def read_patches(path: Path) -> dict:
+    """Instruction replacements for moved functions: function -> [(address, text)].
+
+    Each line of the file is `<function> <address> <new instruction>`. A patch may
+    only change an instruction in place; anything bigger belongs in C.
+    """
+    patches = {}
+    if not path.exists():
+        return patches
+    for number, line in enumerate(path.read_text().splitlines(), 1):
+        fields = line.split("#")[0].split(None, 2)
+        if not fields:
+            continue
+        if len(fields) != 3:
+            raise ValueError(f"{path}:{number}: expected '<function> <address> <instruction>'")
+        patches.setdefault(fields[0], []).append((int(fields[1], 16), fields[2].strip()))
+    return patches
+
+
+def apply_patches(name: str, source: str, patches: list) -> str:
+    for address, text in patches:
+        pattern = rf"^(\s*/\* [0-9A-F]+ {address:08X} [0-9A-F]{{8}} \*/\s+).*$"
+        source, count = re.subn(pattern, lambda m: m.group(1) + text, source, flags=re.M)
+        if count != 1:
+            raise ValueError(f"{name}: no instruction at {address:#x} to patch")
+    return source
+
+
+def write_asm(hooks: list, asm_dir: Path, out_dir: Path, patches: dict = None) -> None:
+    patches = patches or {}
+    unknown = set(patches) - {hook["function"] for hook in hooks}
+    if unknown:
+        raise ValueError(f"patches for functions that are not hooked: {sorted(unknown)}")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     entry = [ASM_HEADER, ".section .text", "",
@@ -114,6 +146,7 @@ def write_asm(hooks: list, asm_dir: Path, out_dir: Path) -> None:
                                  source, flags=re.M)
         if count != 1:
             raise ValueError(f"{name}: expected one glabel")
+        renamed = apply_patches(name, renamed, patches.get(name, []))
         moved += [f"# --- {name}, moved out of fragment {STOCK_FRAGMENT} ---", ".section .text", renamed]
     (out_dir / "moved.s").write_text("\n".join(moved) + "\n", newline="\n")
 
@@ -215,6 +248,17 @@ def pack_fragment(elf: fr.Elf) -> bytes:
     errors = fr.order_errors(bytes(image), table)
     if errors:
         raise ValueError("the loader would mis-relocate " + ", ".join(f"{MOD_VRAM + o:#x}" for o in errors))
+
+    # The mod can load anywhere, so one `lui` must never serve two of its own addresses.
+    # (Moved stock code may do this for stock data; that is as safe as it is in the
+    # unmodified game, where the same code meets the same load addresses.)
+    span = range(MOD_VRAM, MOD_VRAM + fr.FRAGMENT_SPAN)
+    shared = {at: addresses for at, addresses in fr.shared_high_halves(bytes(image), table).items()
+              if any(a in span for a in addresses)}
+    if shared:
+        raise ValueError("one `lui` is shared by several mod addresses; go through a pointer instead: "
+                         + "; ".join(f"{MOD_VRAM + at:#x} -> " + ", ".join(f"{a:#x}" for a in addresses)
+                                     for at, addresses in sorted(shared.items())))
     return bytes(image) + packed_table.ljust(size_in_rom - reloc_offset, b"\0")
 
 
@@ -298,7 +342,8 @@ def main() -> int:
 
     hooks = read_hooks(args.hooks)
     if args.command == "asm":
-        write_asm(hooks, args.asm_dir, args.out_dir)
+        write_asm(hooks, args.asm_dir, args.out_dir,
+                  read_patches(args.hooks.with_name("asm_patches.txt")))
         return 0
 
     rom = bytearray(args.rom.read_bytes())
