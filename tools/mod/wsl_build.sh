@@ -8,7 +8,7 @@
 #   tools/mod/wsl_build.sh init        first-time setup: venv, tools, extract, baseline build
 #   tools/mod/wsl_build.sh             incremental build (matching, MOD=0)
 #   tools/mod/wsl_build.sh -- V=1      extra arguments after -- go to make
-#   tools/mod/wsl_build.sh mod         build the mod fragment and the modded ROM
+#   tools/mod/wsl_build.sh mod         build the mod fragment, the modded ROM and its BPS patch
 #   tools/mod/wsl_build.sh pull-asm    copy the extracted asm/ tree back for reading
 #
 # Environment: MIRROR (default ~/stadium2-build), VENV (default ~/.venvs/stadium2), JOBS.
@@ -63,7 +63,7 @@ pull_artifacts() {
     mkdir -p "$SRC/build"
     local f
     for f in "pokestadiumgs-$VERSION.z64" "pokestadiumgs-$VERSION.map" "pokestadiumgs-$VERSION.elf" \
-             "pokestadiumgs-$VERSION-mod.z64"; do
+             "pokestadiumgs-$VERSION-mod.z64" "stadium2-rental-editor-$VERSION.bps"; do
         [[ -f "$MIRROR/build/$f" ]] && cp -f "$MIRROR/build/$f" "$SRC/build/$f"
     done
     return 0

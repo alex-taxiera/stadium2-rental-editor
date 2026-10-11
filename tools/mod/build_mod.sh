@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build the mod fragment and inject it into a copy of the matching ROM.
+# Build the mod fragment, inject it into a copy of the matching ROM, and write the
+# BPS patch that turns the original ROM into the result.
 # Runs inside the WSL build mirror (see wsl_build.sh mod); expects the stock build
 # to exist already.
 set -euo pipefail
@@ -13,6 +14,8 @@ OUT=build/mod
 GAME_ELF="build/pokestadiumgs-$VERSION.elf"
 ROM="build/pokestadiumgs-$VERSION.z64"
 MOD_ROM="build/pokestadiumgs-$VERSION-mod.z64"
+PATCH="build/stadium2-rental-editor-$VERSION.bps"
+BASEROM="baseroms/$VERSION/baserom.z64"
 ASM_DIR="asm/$VERSION"
 
 CC=tools/ido/linux/7.1/cc
@@ -60,3 +63,6 @@ $LD -T mod/mod.ld -T "$OUT/game_syms.ld" --emit-relocs --no-check-sections \
 
 "$PYTHON" tools/mod/modtool.py inject --mod-elf "$OUT/mod.elf" --game-elf "$GAME_ELF" \
     --rom "$ROM" --hooks mod/hooks.txt --asm-dir "$ASM_DIR" --out "$MOD_ROM"
+
+"$PYTHON" tools/mod/bps.py create "$BASEROM" "$MOD_ROM" "$PATCH"
+sha1sum "$MOD_ROM" "$PATCH"
