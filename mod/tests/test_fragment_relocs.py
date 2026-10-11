@@ -181,6 +181,27 @@ class RelocateTest(unittest.TestCase):
         self.assertEqual(fr.order_errors(image, [0x06000000 | lo, 0x05000000 | hi]), [hi])
 
 
+class SharedHighHalfTest(unittest.TestCase):
+    def test_one_lui_serving_two_addresses_is_reported(self):
+        p = Program()
+        high, low = hi_lo(VRAM + 0x400)
+        at = p.emit(lui(T0, high), fr.R_MIPS_HI16, VRAM + 0x400)
+        p.emit(addiu(T1, T0, low), fr.R_MIPS_LO16, VRAM + 0x400)
+        p.emit(addiu(T1, T0, low + 4), fr.R_MIPS_LO16, VRAM + 0x404)
+        entries, _ = p.table()
+        self.assertEqual(fr.shared_high_halves(image_of(p.words), entries),
+                         {at: [VRAM + 0x400, VRAM + 0x404]})
+
+    def test_repeated_use_of_one_address_is_fine(self):
+        p = Program()
+        high, low = hi_lo(VRAM + 0x400)
+        p.emit(lui(T0, high), fr.R_MIPS_HI16, VRAM + 0x400)
+        p.emit(addiu(T1, T0, low), fr.R_MIPS_LO16, VRAM + 0x400)
+        p.emit(addiu(T1, T0, low), fr.R_MIPS_LO16, VRAM + 0x400)
+        entries, _ = p.table()
+        self.assertEqual(fr.shared_high_halves(image_of(p.words), entries), {})
+
+
 class MergeTest(unittest.TestCase):
     def test_replaces_only_the_given_range(self):
         stock = [0x04000020, 0x05000040, 0x06000044, 0x04000060, 0x02000100]

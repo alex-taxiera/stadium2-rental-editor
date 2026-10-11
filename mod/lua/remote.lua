@@ -5,6 +5,7 @@
 -- per line; when all have run, <dir>/done.txt holds their output.
 --
 --   press <buttons> [frames]   hold e.g. "A" or "A+DPad D" (default 4 frames), then release
+--   hold <buttons> <frames> [name]   hold, and screenshot to <name>.png while held
 --   stick <x> <y> [frames]     hold the analog stick (-127..127)
 --   wait <frames>
 --   shot <name>                screenshot to <dir>/<name>.png
@@ -60,6 +61,23 @@ function commands.press(args)
         pad[name:match("^%s*(.-)%s*$")] = true
     end
     advance(frames or 4, pad)
+    advance(2)
+end
+
+-- hold <buttons> <frames> [name]: like press, but screenshots before letting go.
+function commands.hold(args)
+    local at = 1
+    while args[at] and not tonumber(args[at]) do at = at + 1 end
+    local pad = {}
+    for name in table.concat(args, " ", 1, at - 1):gmatch("[^+]+") do
+        pad[name:match("^%s*(.-)%s*$")] = true
+    end
+    advance(tonumber(args[at]) or 30, pad)
+    if args[at + 1] then
+        joypad.set(pad, 1)
+        client.screenshot(dir .. "\\" .. args[at + 1] .. ".png")
+        log("shot " .. args[at + 1] .. ".png")
+    end
     advance(2)
 end
 

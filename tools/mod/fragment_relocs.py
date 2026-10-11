@@ -359,6 +359,27 @@ def expected_aligned(image: bytes, table: list, fragment_map: dict) -> bytes:
     return bytes(out)
 
 
+def shared_high_halves(image: bytes, table: list) -> dict:
+    """HI16s that the loader would apply to more than one address: offset -> addresses.
+
+    After a move that is not a multiple of 0x10000, two such addresses can need
+    different upper halves, and the loader can only write one.
+    """
+    pending, formed = {}, {}
+    for entry in table:
+        offset = entry & OFFSET_MASK
+        (word,) = struct.unpack_from(">I", image, offset)
+        kind = (entry >> 24) & 0x7F
+        if kind == R_MIPS_HI16:
+            pending[(word >> 16) & 0x1F] = (offset, word & 0xFFFF)
+        elif kind == R_MIPS_LO16 and (word >> 21) & 0x1F in pending:
+            at, high = pending[(word >> 21) & 0x1F]
+            low = word & 0xFFFF
+            address = ((high << 16) + (low - 0x10000 if low & 0x8000 else low)) & 0xFFFFFFFF
+            formed.setdefault(at, set()).add(address)
+    return {at: sorted(addresses) for at, addresses in formed.items() if len(addresses) > 1}
+
+
 ALIGNED_MAP = {frag: 0x80400000 + frag * 0x30000 for frag in range(240)}
 
 

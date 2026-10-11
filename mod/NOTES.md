@@ -11,10 +11,27 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
 
 - **M0 done.** The stock build matches the original ROM and boots.
 - **M1 mostly done.** See "Open questions" for what is left.
-- **M2 done in BizHawk.** The mod fragment loads from the entry screen, the ENTER menu
-  draws an extra "EDIT" line from mod code, and leaving and re-entering the screen is
-  clean (fragment map entry 0x40 is cleared on exit and reappears at the same address).
-  Not yet run on standalone ares or hardware.
+- **M2 done in BizHawk.** The mod fragment loads from the entry screen, and leaving and
+  re-entering the screen is clean (fragment map entry 0x40 is cleared on exit and
+  reappears at the same address).
+- **M3 and most of M4 done in BizHawk.** EDIT on a rental's ENTER menu opens a
+  full-width editor window over the party box; the stock detail panel stays visible below
+  it as a live preview. One cursor moves between three columns: the four moves (and the
+  level beneath them), DVs for Attack/Defense/Speed/Special, and Stat Exp for all five
+  stats. A on a move opens a list of the species' legal moves with type, power, accuracy
+  and PP. A on a number grabs it: up/down step, left/right step further, L/R jump to the
+  ends. Stat Exp steps between the 64 values that change the stat. Level is held to the
+  rule set's range.
+  - Checked: Attack DV 15 and Stat Exp 65535 took Abra's Attack from 116 to 138; level 90
+    recalculated every stat; closing the editor restores the party box.
+  - The earlier in-box move editor was checked through to battle (Light Screen 30/30).
+    The full-size editor writes the same record, and its edits reach the party copy, but
+    it has not itself been taken into a battle yet.
+- Held items are left to the stock ITEM entry, which already handles rentals.
+- Nothing has been run on standalone ares or hardware yet.
+- Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
+  before entering it loses the edit. Nothing shows what a DV change does to gender,
+  shininess or Hidden Power.
 
 ## Building
 
@@ -25,7 +42,7 @@ The build runs in WSL (Ubuntu). From the repo root inside WSL:
     tools/mod/wsl_build.sh                         # stock ROM, must match the original
     tools/mod/wsl_build.sh mod                     # build/pokestadiumgs-us-mod.z64
     tools/mod/wsl_build.sh pull-asm                # copy asm/ back for reading
-    python3 -m unittest discover -s mod/tests      # 56 tests
+    python3 -m unittest discover -s mod/tests      # 63 tests
 
 `wsl_build.sh` mirrors the sources to `~/stadium2-build` (native ext4) because building
 on the Windows drive is slow, then copies the ROMs, map and ELF back into `build/`.
@@ -48,6 +65,11 @@ the game's compiler (IDO 7.1), links them at `0x85000000` against the game's sym
   the screen takes the rest of the main pool, and the pool frees the mod on exit.
 - Only asm functions can be hooked so far (the tool takes their size and body from
   `asm/us/nonmatchings`). Hooking a decompiled function needs its body from elsewhere.
+- `mod/asm_patches.txt` changes single instructions in a moved function, by address.
+- `modtool.py inject` refuses to build a fragment the loader could get wrong: every
+  LO16 must have a HI16, the table must pass the order check, and no `lui` may serve two
+  addresses inside the mod. Hence `Edit_GetState` in `mod/src/state.s`: C code reaches
+  the editor's state only through that pointer.
 
 In the Free Battle path the mod loads at `0x80253290`; fragment 14 is at `0x80154DA0`.
 
@@ -228,7 +250,60 @@ Text drawing as the stock code does it: `gSPDisplayList(D_800D0510++, D_80094F50
 `func_800498C4()`, `func_800496A4(4, 1)`, `func_8004972C(r, g, b, a)`,
 `func_800495BC(x, y, string)`, `func_800499EC()`. Strings are plain ASCII.
 
-Still to locate: where the chosen record is copied into the party.
+The chosen record is copied into the party when "Yes" is confirmed; in the Free Battle
+path the party copy sits at `state + 0x15390`. The battle then works from its own copies
+(six of them, one at `0x800D1C60`). Nothing re-reads the rental table.
+
+### Redrawing
+
+The screen does not repaint every frame. Each frame a widget registers its rectangle with
+`func_81600A34(ctx, key, dirty, x, y, w, h)`, and `func_81600DA8(ctx, key)` then says
+whether to draw it: when it is dirty, was dirty last frame (two framebuffers), or is new.
+`func_8130F2C4` registers the panel's regions:
+
+| Key | Region | Dirty when |
+|---|---|---|
+| `panel` | detail panel | `panel->0x00` is nonzero (then cleared) |
+| `panel + 1` | ENTER menu box | `state == 1`, i.e. every frame the menu is open |
+| `panel + 3` | Pokémon model | always |
+| `panel + 4` | "check TM" popup | `panel->0x38 >= 0` |
+
+Drawing outside a registered region leaves ghosts. After changing the record, set
+`panel->0x00 = 1` to repaint the detail panel.
+
+`func_81600B30` settles the regions each frame: a region whose rectangle changed is
+dirty, and when a region stops being registered, everything that overlapped it is marked
+dirty. So an overlay needs no cleanup: stop registering it and the screen repaints what
+it covered. The editor window works this way. `Mod_EnterMenuInput`, which runs in the
+update pass, registers it every frame it is open, keyed by the address of the editor's
+state; `Mod_DrawEnterMenu` draws it when `func_81600DA8` says so. It is drawn from the
+ENTER menu's draw call, which comes after the party box and list, so it lands on top.
+
+UI library pieces used (fragment 11):
+
+| Function | Role |
+|---|---|
+| `func_816048E0(x, y, w, h)` | framed window in the game's style; inside is `x + 8`, `y + 8`, `w - 19`, `h - 19` |
+| `func_816073A0(rect)` / `func_81607408()` | clip to a window's inside / to the full screen |
+| `Gfx_FillRectRgb(x, y, w, h, r, g, b)` | filled rectangle, after `gSPDisplayList(D_800D0510++, D_80094D90)` |
+| `func_80049148(font, 1, string)` | width of a string |
+
+The font has no `<` or `>` glyphs. The ENTER box's inside is `x + 0x198`, `y + 9`,
+129 x 128, colour `#3333F8`; the editor paints its key hints there.
+
+### Rules
+
+`*(Rules **)(D_8133197C + 0x940)` is the rule set in force (in the main segment; Anything
+Goes is at `0x8009F5C4`). `+0x14`: 32-byte bitmask of allowed species. `+0x36`/`+0x37`:
+minimum and maximum level (0 and 100 for Anything Goes). `+0x38` (u16): cap on combined
+levels (600). `+0x40`: flag word; bit 26 allows held items.
+
+### Input
+
+`func_8130EC9C(panel)` reads `D_800CE060[panel->0x37]` (0x28 bytes per controller):
+`+0x08` held buttons, `+0x0C` newly pressed. A on cursor 2 opens the item list; A on
+anything else, or B, closes the menu with result `cursor + 1`. Up/down move the cursor
+within `func_8130CEAC`'s count. C buttons open the "check TM" popup for a move.
 
 ## Pokémon helpers (main segment)
 
@@ -243,6 +318,11 @@ Still to locate: where the chosen record is copied into the party.
 | `func_80061F44(mon)` | current HP = max HP, clear status, refill PP |
 | `func_80062EB0(move, ppUpBits)` | max PP for a move |
 | `func_8004B7A4(species)` | species name string |
+| `func_80062CE0(move)` | move name string (text bank 6) |
+| `func_80062D20/D5C/D98/DD4/E10/F2C(move)` | effect, power, type, accuracy, PP, effect chance |
+| `func_80062EB0(move, ppByte)` | PP byte at max PP, keeping the PP Up bits of `ppByte` |
+| `func_80063270(type)` | type name string |
+| `func_800226C0(id)` | play a sound: 1 cursor, 2 confirm, 3 cancel, 5 error |
 | `func_80051830(mon, saved)` / `func_80051864` | unpack / pack a registered-team entry |
 
 After editing a record the sequence is: set experience with `func_80061B88` if the level
@@ -270,7 +350,13 @@ load, read, find, write, eval). BizHawk lives in `.emu/BizHawk`; output in `.emu
   use `find` and static reading instead.
 - Path to the picker: Start, Start, A, A (map); D-pad Right, Up, A (Free Battle); A, A, A
   (1P vs COM, Normal); A (Anything Goes); A (stage); Right, Right, A (Rental Only).
-- Savestates: `whitecity`, `fb_rules`, `fb_entry`, `fb_rental`.
+- `tools/mod/emu.sh script mod/lua/goto_rental.txt` replays that path from `whitecity`.
+- Savestates: `whitecity`, `fb_rules`, `fb_entry`, `fb_rental` (stock ROM). A state taken
+  with fragment 14 loaded contains that build's mod code, so after rebuilding start from
+  `whitecity`, which predates the entry screen.
+- To reach a battle from the picker: Yes, Start, OK; pick the COM's entry the same way;
+  A through the intro; on the "All ready!" screen press the button shown on each of your
+  Pokémon, then A. In battle, A opens BATTLE and holding R lists the moves.
 
 ## Drawing helpers (main segment, used by fragment 24)
 
@@ -319,12 +405,13 @@ Tests: `python3 -m unittest discover -s mod/tests` (22 tests).
 
 ## Open questions (milestone M1)
 
-Answered: the rental expander (`func_80071E48`), what registered teams store (full data),
-and the fragment map (240 entries, ID 0x40 free). Remaining:
+Answered: the rental expander (`func_80071E48`), what registered teams store (full
+data), the fragment map (240 entries, ID 0x40 free), the ENTER menu's handlers and that
+they are shared by every mode, and that an edited record reaches battle. Remaining:
 
-1. Where is the ENTER menu handled, and is it shared by Free Battle, registration and the cups?
-2. Where is the chosen record copied into the party, and does anything re-read the rental
-   table before battle? (Test: change a move in the open record, enter, and check in battle.)
-3. Free main-pool RAM while the picker is open (`main_pool_get_available`).
-4. Where are cup level rules stored? (`D_82B0865C` and the rule flag word are leads.)
-5. How the existing ITEM picker and "check TM" list are drawn, as models for the move list.
+1. Free main-pool RAM while the picker is open (`main_pool_get_available`), especially on
+   a 4 MB console.
+2. Where cup level rules are stored (`D_82B0865C` and the rule flag word are leads).
+3. Whether registering an edited team and loading it back keeps the edits (expected).
+4. Whether two players can have the picker open at once; the editor keeps one state.
+5. How the existing ITEM picker scrolls, in case its widget suits the stat editor.
