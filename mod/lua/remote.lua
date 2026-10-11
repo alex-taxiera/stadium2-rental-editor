@@ -1,8 +1,13 @@
 -- Remote control for BizHawk. Polls a command file once per frame so the game can be
--- driven from outside the emulator (see tools/mod/emu.sh).
+-- driven from outside the emulator (see tools/mod/emu.py).
 --
 -- Directory: environment variable S2_REMOTE_DIR. Write commands to <dir>/cmd.txt, one
 -- per line; when all have run, <dir>/done.txt holds their output.
+--
+-- With S2_REMOTE_STEP=1 the game is paused whenever no commands are running, so it
+-- sees exactly the frames the commands ask for and nothing in between. Two runs of the
+-- same commands from power-on are then identical, down to the noise in the picture.
+-- Without it the game runs freely, and can be played by hand between commands.
 --
 --   press <buttons> [frames]   hold e.g. "A" or "A+DPad D" (default 4 frames), then release
 --   hold <buttons> <frames> [name]   hold, and screenshot to <name>.png while held
@@ -19,6 +24,7 @@
 --   turbo on|off               unthrottled emulation
 --   frame                      print the frame counter
 --   eval <lua>                 run a Lua chunk inside the emulator and print its results
+--   reboot                     power-cycle the console once this batch's output is written
 --   exit                       close the emulator
 
 local dir = os.getenv("S2_REMOTE_DIR")
@@ -27,8 +33,10 @@ local cmd_path = dir .. "\\cmd.txt"
 local done_path = dir .. "\\done.txt"
 
 local RDRAM = "RDRAM"
+local stepping = os.getenv("S2_REMOTE_STEP") == "1"
 local out = {}
 local player = 1
+local reboot_pending = false
 
 local function log(s) out[#out + 1] = s end
 
@@ -187,6 +195,10 @@ function commands.eval(args)
     end
 end
 
+-- client.reboot_core() ends the batch it is called from: nothing after it runs and no
+-- output is written. So the reboot waits until the caller has its answer.
+function commands.reboot() reboot_pending = true end
+
 function commands.exit() client.exit() end
 
 local function run_file()
@@ -197,6 +209,7 @@ local function run_file()
     f:close()
     os.remove(cmd_path)
     out = {}
+    if stepping then client.unpause() end
     for _, line in ipairs(lines) do
         local words = {}
         for w in line:gmatch("%S+") do words[#words + 1] = w end
@@ -216,6 +229,11 @@ local function run_file()
     d:close()
     os.remove(done_path)
     os.rename(done_path .. ".tmp", done_path)
+    if stepping then client.pause() end
+    if reboot_pending then
+        reboot_pending = false
+        client.reboot_core()
+    end
 end
 
 client.SetSoundOn(false)
@@ -223,7 +241,9 @@ console.log("stadium2 remote ready: " .. dir)
 local ready = io.open(dir .. "\\ready.txt", "w")
 if ready then ready:write(emu.getsystemid(), "\n") ready:close() end
 
+if stepping then client.pause() end
 while true do
     run_file()
-    emu.frameadvance()
+    -- yield lets the script go on polling while the game stands still
+    if stepping then emu.yield() else emu.frameadvance() end
 end

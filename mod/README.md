@@ -100,8 +100,9 @@ A registered team keeps its edits.
 
 ## What has been tested
 
-Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts
-(`tools/mod/emu.sh`).
+Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts. Most of
+it is now an automated suite (`mod/tests/emu`, 23 scenarios) that plays the editor and
+checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 
 - Moves, level, DVs and Stat Exp edited and carried into a battle.
 - Shiny, gender, Unown's letter and Hidden Power shown and updated as DVs change.
@@ -157,6 +158,10 @@ See "Building" in [NOTES.md](NOTES.md). In short, inside WSL:
     python3 tools/mod/check_rom.py <path-to-rom>   # verify the ROM and install it as the base
     tools/mod/wsl_build.sh init                    # first time only
     tools/mod/wsl_build.sh mod                     # build/stadium2-rental-editor-us.bps
+
+The build ends by comparing its output with `mod/checksums.txt`, which holds the SHA-1 of
+the patch and of the ROM it produces. A patch you were given can be checked against the
+same file.
 
 The mod leaves the decompilation's sources untouched. Its code is one new overlay stored
 in an unused part of the ROM, and three functions of the entry screen are replaced by
