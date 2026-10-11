@@ -13,6 +13,12 @@
 #define DV_X 410
 #define STAT_EXP_X 516
 
+/* Traits sit on the title row, filling leftwards from the right-hand column. */
+#define TRAIT_X STAT_EXP_X
+#define TRAIT_GAP 18
+#define WORD_GAP 7
+#define NAME_X (MOVE_X + 60)
+
 #define LIST_ROW_Y 36
 #define LIST_ROW_SPACING 19
 #define LIST_TYPE_X 236
@@ -43,6 +49,8 @@ static char sPower[] = "POW";
 static char sAccuracy[] = "ACC";
 static char sDash[] = "-";
 static char sSlash[] = "/";
+static char sShiny[] = "SHINY";
+static char sLetter[] = "LETTER";
 
 static char sHp[] = "HP";
 static char sAttack[] = "ATTACK";
@@ -72,6 +80,10 @@ static void Edit_Heading(void) {
     Text_SetColor(0x80, 0xE0, 0xFF, 0xFF);
 }
 
+static void Edit_Gold(void) {
+    Text_SetColor(0xFF, 0xC8, 0x40, 0xFF);
+}
+
 /* Yellow marks the field the cursor is on, green one whose value is being changed. */
 static void Edit_FieldColor(EditState *state, s32 col, s32 row) {
     if (state->col != col || state->row != row) {
@@ -83,8 +95,11 @@ static void Edit_FieldColor(EditState *state, s32 col, s32 row) {
     }
 }
 
-static void Edit_DrawRight(s32 x, s32 y, char *str) {
-    Text_Draw(x - Text_Width(MENU_FONT, 1, str), y, str);
+/* Draws `str` ending at `x`, and returns where it starts. */
+static s32 Edit_DrawRight(s32 x, s32 y, char *str) {
+    x -= Text_Width(MENU_FONT, 1, str);
+    Text_Draw(x, y, str);
+    return x;
 }
 
 /* Writes `value` in decimal ending at `end`, and returns where it starts. */
@@ -103,6 +118,34 @@ static void Edit_DrawNumber(s32 x, s32 y, s32 value) {
     Edit_DrawRight(x, y, Edit_Digits(&buffer[11], value));
 }
 
+/* What the DVs decide besides the stats, each shown only when it applies: Hidden Power's
+ * type and power if the Pokemon knows the move, Unown's letter, and shininess. Gender
+ * goes beside the name, as in the stock panel. */
+static void Edit_DrawTraits(Pokemon *mon, s32 x, s32 y) {
+    char buffer[12];
+    char letter[2];
+
+    if (Edit_Knows(mon, MOVE_HIDDEN_POWER, -1)) {
+        Edit_White();
+        x = Edit_DrawRight(x, y, Edit_Digits(&buffer[11], Edit_MovePower(mon, MOVE_HIDDEN_POWER)));
+        x = Edit_DrawRight(x - WORD_GAP, y, Type_Name(Edit_MoveType(mon, MOVE_HIDDEN_POWER)));
+        Edit_Heading();
+        x = Edit_DrawRight(x - WORD_GAP, y, Move_Name(MOVE_HIDDEN_POWER)) - TRAIT_GAP;
+    }
+    if (mon->species == SPECIES_UNOWN) {
+        letter[0] = 'A' + Unown_Letter(mon->dvs) - 1;
+        letter[1] = '\0';
+        Edit_White();
+        x = Edit_DrawRight(x, y, letter);
+        Edit_Heading();
+        x = Edit_DrawRight(x - WORD_GAP, y, sLetter) - TRAIT_GAP;
+    }
+    if (Pokemon_IsShiny(mon->dvs)) {
+        Edit_Gold();
+        Edit_DrawRight(x, y, sShiny);
+    }
+}
+
 static void Edit_DrawFields(EditState *state, Pokemon *mon) {
     s32 x = EDIT_WINDOW_X;
     s32 y = EDIT_WINDOW_Y;
@@ -117,7 +160,9 @@ static void Edit_DrawFields(EditState *state, Pokemon *mon) {
     Edit_DrawRight(x + DV_X, y + HEADER_Y, sDV);
     Edit_DrawRight(x + STAT_EXP_X, y + HEADER_Y, sStatExp);
     Edit_White();
-    Text_Draw(x + MOVE_X + 60, y + TITLE_Y, mon->nickname);
+    Text_Draw(x + NAME_X, y + TITLE_Y, mon->nickname);
+    Text_Draw(x + NAME_X + Text_Width(MENU_FONT, 1, mon->nickname), y + TITLE_Y, Pokemon_GenderSymbol(mon));
+    Edit_DrawTraits(mon, x + TRAIT_X, y + TITLE_Y);
 
     for (row = 0; row < NUM_ROWS; row++) {
         rowY = y + ROW_Y + ROW_SPACING * row;
@@ -185,9 +230,9 @@ static void Edit_DrawMoveList(EditState *state, Pokemon *mon) {
             continue;
         }
         Text_Draw(x + MOVE_X, rowY, Move_Name(move));
-        Text_Draw(x + LIST_TYPE_X, rowY, Type_Name(Move_Type(move)));
-        if (Move_Power(move) > 1) {
-            Edit_DrawNumber(x + LIST_POWER_X, rowY, Move_Power(move));
+        Text_Draw(x + LIST_TYPE_X, rowY, Type_Name(Edit_MoveType(mon, move)));
+        if (Edit_MovePower(mon, move) > 1) {
+            Edit_DrawNumber(x + LIST_POWER_X, rowY, Edit_MovePower(mon, move));
         } else {
             Edit_DrawRight(x + LIST_POWER_X, rowY, sDash);
         }
