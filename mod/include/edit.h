@@ -7,7 +7,8 @@ enum {
     EDIT_OFF,
     EDIT_FIELDS,   /* moving between fields */
     EDIT_ADJUST,   /* a number is grabbed and the pad changes it */
-    EDIT_MOVE_LIST /* choosing a move from the legal list */
+    EDIT_MOVE_LIST, /* choosing a move from the legal list */
+    EDIT_NAME      /* typing a nickname on the keyboard */
 };
 
 /* Fields are addressed as (column, row). Rows line up across the three columns. */
@@ -20,6 +21,15 @@ enum { COL_MOVES, COL_DV, COL_STAT_EXP, NUM_COLS };
 #define EDIT_LIST_ROWS 7
 #define EDIT_REMOVE 0 /* list entry that clears the slot */
 
+/* The nickname keyboard, laid out like the Game Boy's: pages of four rows of nine
+ * character keys, above a row of three wide keys that each span three columns. */
+enum { PAGE_UPPER, PAGE_LOWER, NUM_PAGES };
+#define KEY_ROWS 4
+#define KEY_COLS 9
+#define KEY_ROW_WIDE KEY_ROWS
+enum { KEY_CASE, KEY_DELETE, KEY_END, NUM_WIDE_KEYS };
+#define WIDE_KEY_SPAN (KEY_COLS / NUM_WIDE_KEYS)
+
 typedef struct EditState {
     /* 0x00 */ u8 mode;
     /* 0x01 */ u8 col;
@@ -28,9 +38,17 @@ typedef struct EditState {
     /* 0x04 */ s16 count;  /* entries in list */
     /* 0x06 */ s16 cursor; /* selected entry */
     /* 0x08 */ s16 top;    /* first visible entry */
+    /* 0x0A */ u8 onName;  /* the cursor is on the name; col and row say where it came from */
+    /* 0x0B */ u8 keyPage;
     /* 0x0C */ DetailPanel *panel;
     /* 0x10 */ u8 list[NUM_MOVES + 1];
-} EditState;
+    /* 0x10C */ u8 keyCol;
+    /* 0x10D */ u8 keyRow;
+    /* 0x10E */ u8 nameLength;
+    /* 0x10F */ u8 keysMeasured;
+    /* 0x110 */ char name[MAX_NAME_LENGTH + 1]; /* as typed; written to the record on END */
+    /* 0x11B */ u8 keyInset[NUM_PAGES][KEY_ROWS][KEY_COLS]; /* centres each key in its cell */
+} EditState; /* size = 0x164 */
 
 /* The editor window, drawn over the party box. The stock detail panel below it stays
  * visible and shows the Pokemon as it will be. */
@@ -55,6 +73,13 @@ s32 Edit_HpDv(Pokemon *mon);
 s32 Edit_GetDv(Pokemon *mon, s32 row);
 s32 Edit_MoveType(Pokemon *mon, s32 move);
 s32 Edit_MovePower(Pokemon *mon, s32 move);
+s32 Edit_RepeatedButtons(EditState *state, Pad *pad, s32 repeating);
+void Edit_ReloadLook(DetailPanel *panel);
+
+/* edit_name.c */
+void Edit_OpenName(EditState *state, DetailPanel *panel);
+void Edit_UpdateName(EditState *state, Pad *pad, DetailPanel *panel);
+s32 Edit_NameKey(s32 page, s32 row, s32 col);
 
 /* edit_draw.c */
 void Edit_DrawWindow(DetailPanel *panel);
