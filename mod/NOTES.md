@@ -24,14 +24,29 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
   rule set's range.
   - Checked: Attack DV 15 and Stat Exp 65535 took Abra's Attack from 116 to 138; level 90
     recalculated every stat; closing the editor restores the party box.
-  - The earlier in-box move editor was checked through to battle (Light Screen 30/30).
-    The full-size editor writes the same record, and its edits reach the party copy, but
-    it has not itself been taken into a battle yet.
+  - Checked through to battle: an Abra edited to 10/10/10/10 with Hidden Power in its
+    fourth slot fights as a shiny with 213 HP and Psychic, Ice Punch, Hidden Power and
+    Swagger.
+- **What DVs decide besides stats** is shown on the editor's title row, each only when it
+  applies: the gender symbol beside the name, `SHINY`, Unown's `LETTER`, and Hidden
+  Power's type and power when the Pokémon knows the move. The move list shows Hidden
+  Power's real type and power too. When a DV change alters the look (shiny, Unown's
+  letter, Smeargle's paint) the 3D model and the list icon are reloaded.
+  - Checked: Abra at 10/10/10/10 turns shiny in the panel, the list and the party box,
+    with Hidden Power Grass 69, and it is shiny in battle too; Attack DV 0 flips it to
+    female; Unown at 0/14/14/15 becomes G with Hidden Power Poison 50.
+- **M5 done in BizHawk.** Both ways of registering a team offer EDIT: "OK to Register"
+  after picking in Free Battle, and Register POKéMON on the entry screen ("Rental Only
+  (register)"), which is the same picker.
+  - Checked: the shiny Abra above was registered, the console reset
+    (`client.reboot_core()`), and the set chosen from Registered POKéMON. The record came
+    back with the same moves, PP, DVs `0xAAAA`, Stat Exp and level, the rental flag still
+    set, and the stats recalculated to the same values.
 - Held items are left to the stock ITEM entry, which already handles rentals.
 - Nothing has been run on standalone ares or hardware yet.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
-  before entering it loses the edit. Nothing shows what a DV change does to gender,
-  shininess or Hidden Power.
+  before entering it loses the edit. The stock detail panel and the battle menu label
+  Hidden Power as Normal, as they do in the unmodified game.
 
 ## Building
 
@@ -213,7 +228,10 @@ opens the picker (box tabs `P`, `1`–`14`, `R`; 3 rows x 4 cells visible).
   - Unless the rule's flag word (`…->0x940->0x40`, bit 26) is set, every cell's item is cleared.
 - Cell, 0xCE8 bytes: `+0x00` the 0x58-byte record, `+0x58` source (5 = rental, else box + 1),
   `+0x59` tab, `+0x5A` index in source, `+0x5B` species, `+0x60` icon. A row is four cells
-  plus 0x10 bytes (0x33B0).
+  plus 0x10 bytes (0x33B0). The party box holds cells of the same shape
+  (`party + 0x20 + n * 0xCE8`), so every record the detail panel is given starts a cell.
+- The icon is rendered into the cell by `func_8004D878(cell + 0x60, 0, cell)` when the
+  cell is filled, and drawn from there; entering a Pokémon copies the whole cell.
 - Pressing A on a cell opens the detail panel (stats, four moves) and the menu
   **ENTER: Yes / No / ITEM**, plus "C to check TM". This menu is where EDIT goes.
   The game already lets a rental be given a held item through ITEM.
@@ -229,9 +247,16 @@ Detail panel object (`fragment14_104FC0.c`), the first argument of everything be
 | 0x34 | state: 0 closed, 1 menu active, 3 closing after a choice, 4 item list open |
 | 0x35 | mode: 0 ENTER, 1 EXCHANGE, 2+ view only |
 | 0x36 | cursor (s8): 0 Yes, 1 No, 2 ITEM |
+| 0x24 | the word at record + 0x58 (source, tab, index, species) when it was opened |
 | 0x39 | chosen item |
 | 0x5C | item list object, NULL when the rules allow no items |
+| 0x68 | the 3D model shown in the panel |
 | 0x6C | the Pokémon record being shown |
+| 0x70 | model timer: counts down a frame at a time, and at 0 `func_80042F94(model, record)` loads the model. `func_8130EA8C` sets it to 2 when the panel is given a new record |
+
+The panel is opened by `func_8130EB04(panel, controller, record, mode, …)`: mode 0 from the
+list once a cell is chosen (`func_81308F54`), 2 while browsing the list (`func_8130B620`),
+1 and 3 from the party box (`func_81303D60`, `func_813037F0`).
 
 | Function | Role |
 |---|---|
@@ -321,7 +346,15 @@ within `func_8130CEAC`'s count. C buttons open the "check TM" popup for a move.
 | `func_80062CE0(move)` | move name string (text bank 6) |
 | `func_80062D20/D5C/D98/DD4/E10/F2C(move)` | effect, power, type, accuracy, PP, effect chance |
 | `func_80062EB0(move, ppByte)` | PP byte at max PP, keeping the PP Up bits of `ppByte` |
-| `func_80063270(type)` | type name string |
+| `func_80063270(type)` | type name string; ids 0–9 Normal to Steel (6 is the unused Bird), 20–27 Fire to Dark |
+| `func_8006456C(dvs)` | 1 if shiny: `(dvs & 0x2FFF) == 0x2AAA` |
+| `func_80064474(species, dvs)` | gender: 0 none, 1 male, 2 female, from the species' ratio and `(AtkDV << 4) \| SpdDV` |
+| `func_80064520(dvs)` | Unown's letter, 1–26 |
+| `func_8003F954(dvs)` | `dvs % 9`, the variant of Smeargle's icon |
+| `func_80064728(mon)` | picture index: the species, or Unown's letter form, an egg, a surfing Pikachu |
+| `func_8004D878(dst, 0, mon)` | render a record's list icon into `dst` (shiny palette and nickname tint included) |
+| `func_80042F94(model, mon)` | load the 3D model for a record |
+| `func_816087C8(mon)` | gender symbol as a string, empty when genderless (fragment 11) |
 | `func_800226C0(id)` | play a sound: 1 cursor, 2 confirm, 3 cancel, 5 error |
 | `func_80051830(mon, saved)` / `func_80051864` | unpack / pack a registered-team entry |
 
@@ -332,6 +365,13 @@ changed, call `func_800619E8`, then `func_80061F44`.
 recomputed on load (`func_80051830`). They do not store a rental index, so edits persist.
 
 Rental entry byte 0x08 holds PP-Up bits, two per move.
+
+DVs are packed `(Atk << 12) | (Def << 8) | (Spd << 4) | Spc`. Rentals can be shiny:
+`func_8006456C` looks only at the DVs, and the icon, model and battle code all call it
+(seen in the picker and in battle). The game has no helper for Hidden Power outside
+the battle code, so the editor works out its type and power itself (`Edit_MoveType`,
+`Edit_MovePower`). Nicknames tint a Pokémon (`func_8003F5AC`, from the name, OT name and
+ID), but DVs play no part in that.
 
 ## Fragment map
 
@@ -348,9 +388,14 @@ load, read, find, write, eval). BizHawk lives in `.emu/BizHawk`; output in `.emu
   runs the game but renders black.
 - Memory-write callbacks register but never fire on Ares64, so there are no breakpoints;
   use `find` and static reading instead.
+- With no audio device (a locked or remote session) BizHawk stops at an "Initialization
+  Error" box about the sound device before the Lua script runs, and `emu.sh start` times
+  out. Dismiss the box and the script starts.
 - Path to the picker: Start, Start, A, A (map); D-pad Right, Up, A (Free Battle); A, A, A
   (1P vs COM, Normal); A (Anything Goes); A (stage); Right, Right, A (Rental Only).
 - `tools/mod/emu.sh script mod/lua/goto_rental.txt` replays that path from `whitecity`.
+- A savestate carries the cartridge's save data with it, so to test saving, reset with
+  `eval client.reboot_core()` and walk in from the title screen instead of loading one.
 - Savestates: `whitecity`, `fb_rules`, `fb_entry`, `fb_rental` (stock ROM). A state taken
   with fragment 14 loaded contains that build's mod code, so after rebuilding start from
   `whitecity`, which predates the entry screen.
@@ -407,11 +452,11 @@ Tests: `python3 -m unittest discover -s mod/tests` (22 tests).
 
 Answered: the rental expander (`func_80071E48`), what registered teams store (full
 data), the fragment map (240 entries, ID 0x40 free), the ENTER menu's handlers and that
-they are shared by every mode, and that an edited record reaches battle. Remaining:
+they are shared by every mode, that an edited record reaches battle, and that a
+registered edited team loads back unchanged after a reset. Remaining:
 
 1. Free main-pool RAM while the picker is open (`main_pool_get_available`), especially on
    a 4 MB console.
 2. Where cup level rules are stored (`D_82B0865C` and the rule flag word are leads).
-3. Whether registering an edited team and loading it back keeps the edits (expected).
-4. Whether two players can have the picker open at once; the editor keeps one state.
-5. How the existing ITEM picker scrolls, in case its widget suits the stat editor.
+3. Whether two players can have the picker open at once; the editor keeps one state.
+4. How the existing ITEM picker scrolls, in case its widget suits the stat editor.
