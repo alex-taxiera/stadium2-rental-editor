@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build the mod fragment, inject it into a copy of the matching ROM, and write the
-# BPS patch that turns the original ROM into the result.
+# BPS patch that turns the original ROM into the result. Also writes a copy of the ROM
+# that runs as if the console had no Expansion Pak, for the emulator tests.
 # Runs inside the WSL build mirror (see wsl_build.sh mod); expects the stock build
 # to exist already.
 set -euo pipefail
@@ -14,6 +15,7 @@ OUT=build/mod
 GAME_ELF="build/pokestadiumgs-$VERSION.elf"
 ROM="build/pokestadiumgs-$VERSION.z64"
 MOD_ROM="build/pokestadiumgs-$VERSION-mod.z64"
+MOD_ROM_4MB="build/pokestadiumgs-$VERSION-mod-4mb.z64"
 PATCH="build/stadium2-rental-editor-$VERSION.bps"
 BASEROM="baseroms/$VERSION/baserom.z64"
 ASM_DIR="asm/$VERSION"
@@ -65,4 +67,8 @@ $LD -T mod/mod.ld -T "$OUT/game_syms.ld" --emit-relocs --no-check-sections \
     --rom "$ROM" --hooks mod/hooks.txt --asm-dir "$ASM_DIR" --out "$MOD_ROM"
 
 "$PYTHON" tools/mod/bps.py create "$BASEROM" "$MOD_ROM" "$PATCH"
-sha1sum "$MOD_ROM" "$PATCH"
+"$PYTHON" tools/mod/make_4mb_rom.py "$MOD_ROM" "$MOD_ROM_4MB"
+
+# Says whether this build is the one recorded in mod/checksums.txt. A difference is
+# expected after changing the mod, and is not an error here; the tests make it one.
+"$PYTHON" tools/mod/checksums.py check --root . || true
