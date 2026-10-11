@@ -46,6 +46,10 @@ typedef struct Pokemon {
 #define MAX_DV 15
 #define MAX_STAT_EXP 0xFFFF
 
+#define SPECIES_UNOWN 201
+#define SPECIES_SMEARGLE 235
+#define MOVE_HIDDEN_POWER 237
+
 void func_800619E8(Pokemon *mon);            /* level from experience, then all six stats */
 s32 func_80061B88(s32 species, u16 level);   /* experience needed for a level */
 void func_80061F44(Pokemon *mon);            /* full HP, no status, PP refilled */
@@ -54,6 +58,36 @@ u16 StatExpSqrt(u16 statExp);                /* the square-root term of the stat
 #define Pokemon_RecalcStats func_800619E8
 #define Pokemon_ExpForLevel func_80061B88
 #define Pokemon_Heal func_80061F44
+
+/* What the DVs decide besides stats. Gender is func_80064474, which the stock detail
+ * panel already draws. */
+s32 func_8006456C(s32 dvs);  /* 1 for a shiny Pokemon */
+s32 func_80064520(u16 dvs);  /* Unown's letter, 1-26 */
+s32 func_8003F954(u16 dvs);  /* the colour of Smeargle's paint, 0-8 */
+
+#define Pokemon_IsShiny func_8006456C
+#define Unown_Letter func_80064520
+#define Smeargle_Paint func_8003F954
+
+/* Type ids run 0-9 (Normal to Steel, with the unused Bird at 6), then 20-27 (Fire to Dark). */
+#define TYPE_BIRD 6
+#define TYPE_PHYSICAL_END 10
+#define TYPE_FIRE 20
+
+/* An entry in the picker's list or party box: the record, where it came from, and the
+ * icon drawn for it. Every record the detail panel is given is the start of one. */
+typedef struct ListCell {
+    /* 0x00 */ Pokemon pokemon;
+    /* 0x58 */ u8 source;
+    /* 0x59 */ u8 tab;
+    /* 0x5A */ u8 index;
+    /* 0x5B */ u8 species;
+    /* 0x5C */ u8 unk5C[4];
+    /* 0x60 */ u8 icon[0xC88];
+} ListCell; /* size = 0xCE8 */
+
+s32 func_8004D878(void *icon, s32 arg1, Pokemon *mon); /* renders a record's icon */
+#define Icon_Load func_8004D878
 
 /* Max PP for a move, keeping the PP Up bits of `ppByte`. */
 u8 func_80062EB0(u8 move, u8 ppByte);
@@ -124,8 +158,10 @@ typedef struct DetailPanel {
     /* 0x39 */ u8 item;
     /* 0x3A */ u8 unk3A[0x22];
     /* 0x5C */ void *itemList; /* NULL when the rules allow no items */
-    /* 0x60 */ u8 unk60[0xC];
+    /* 0x60 */ u8 unk60[8];
+    /* 0x68 */ void *model; /* the 3D Pokemon beside the panel */
     /* 0x6C */ Pokemon *pokemon;
+    /* 0x70 */ s32 modelTimer; /* counts down a frame at a time; at 0 the model is reloaded */
 } DetailPanel;
 
 #define PANEL_CLOSED 0
@@ -162,10 +198,12 @@ extern void *D_81331974;
 void func_81600A34(void *ctx, s32 key, s32 dirty, s32 x, s32 y, s32 width, s32 height);
 s32 func_81600DA8(void *ctx, s32 key);
 void func_816048E0(s32 x, s32 y, s32 width, s32 height); /* framed window, opaque */
+char *func_816087C8(Pokemon *mon); /* the gender symbol as a string, empty when there is none */
 
 #define Region_Add func_81600A34
 #define Region_ShouldDraw func_81600DA8
 #define Window_Draw func_816048E0
+#define Pokemon_GenderSymbol func_816087C8
 
 /* A window's usable inside, given its outer rectangle. */
 #define WINDOW_INSET 8
