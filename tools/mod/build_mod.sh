@@ -39,8 +39,8 @@ mkdir -p "$OUT"
 "$PYTHON" tools/mod/modtool.py asm mod/hooks.txt "$ASM_DIR" "$OUT"
 
 objects=()
-for source in "$OUT"/entry.s "$OUT"/moved.s; do
-    object="${source%.s}.o"
+for source in "$OUT"/entry.s "$OUT"/moved.s mod/src/*.s; do
+    object="$OUT/$(basename "${source%.s}").o"
     $AS $ASFLAGS -o "$object" "$source"
     objects+=("$object")
 done
