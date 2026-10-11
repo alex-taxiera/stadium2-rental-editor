@@ -7,7 +7,8 @@
 #
 #   tools/mod/wsl_build.sh init        first-time setup: venv, tools, extract, baseline build
 #   tools/mod/wsl_build.sh             incremental build (matching, MOD=0)
-#   tools/mod/wsl_build.sh -- MOD=1    extra arguments after -- go to make
+#   tools/mod/wsl_build.sh -- V=1      extra arguments after -- go to make
+#   tools/mod/wsl_build.sh mod         build the mod fragment and the modded ROM
 #   tools/mod/wsl_build.sh pull-asm    copy the extracted asm/ tree back for reading
 #
 # Environment: MIRROR (default ~/stadium2-build), VENV (default ~/.venvs/stadium2), JOBS.
@@ -95,6 +96,12 @@ case "$cmd" in
         run_make "$@"
         pull_artifacts
         ;;
+    mod)
+        check_prereqs
+        push_sources
+        VERSION="$VERSION" VENV="$VENV" bash "$MIRROR/tools/mod/build_mod.sh"
+        pull_artifacts
+        ;;
     pull-asm)
         rsync -a --delete "$MIRROR/asm/" "$SRC/asm/"
         echo "asm/ copied to $SRC/asm"
@@ -103,7 +110,7 @@ case "$cmd" in
         cd "$MIRROR" && exec bash
         ;;
     *)
-        echo "usage: $0 [init|build|pull-asm|shell] [-- make-args...]" >&2
+        echo "usage: $0 [init|build|mod|pull-asm|shell] [-- make-args...]" >&2
         exit 64
         ;;
 esac
