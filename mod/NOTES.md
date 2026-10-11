@@ -82,7 +82,8 @@ The build runs in WSL (Ubuntu). From the repo root inside WSL:
     tools/mod/wsl_build.sh                         # stock ROM, must match the original
     tools/mod/wsl_build.sh mod                     # build/pokestadiumgs-us-mod.z64 and the .bps patch
     tools/mod/wsl_build.sh pull-asm                # copy asm/ back for reading
-    python3 -m unittest discover -s mod/tests      # 86 tests
+
+Then the tests; see "Tests" below.
 
 `wsl_build.sh` mirrors the sources to `~/stadium2-build` (native ext4) because building
 on the Windows drive is slow, then copies the ROMs, map and ELF back into `build/`.
@@ -460,30 +461,88 @@ a ROM whose `osGetMemSize()` returns 4 MB; run it from power on, not from a save
 translates any address in `0x81000000–0x90000000` through it. ID 0x40 (vram `0x85000000`)
 is unused by all 88 stock fragments. **[C]**
 
+## Tests
+
+Three layers, cheapest first. All three should pass before and after any change to the
+build tools or to the commit of the decompilation the mod sits on.
+
+    python3 -m unittest discover -s mod/tests       # tools and checksums; WSL or Windows; seconds
+    python3 tools/mod/checksums.py check            # the built mod against the record
+    python3 -m unittest discover -s mod/tests/emu   # the game in BizHawk; Windows; about 6 minutes
+
+1. **Tool tests** (`mod/tests/test_*.py`): the ROM checker, relocation tool, injector,
+   patch tool, and the generated move and keyboard tables.
+2. **Checksums** (`mod/checksums.txt`): SHA-1 of the original ROM, the mod ROM and the
+   patch. The build is repeatable, so the same sources always give the same bytes.
+   `build_mod.sh` reports the comparison at the end of every build, and
+   `mod/tests/test_checksums.py` fails on a difference. When the mod's sources change on
+   purpose, `tools/mod/checksums.py update` records the new build. An unchanged checksum
+   after rebasing onto a newer decompilation proves the mod did not change.
+3. **Emulator tests** (`mod/tests/emu/`): the editor played by script, with checks on
+   game memory. `harness.py` switches the console on with no save data, walks to the map
+   and saves a state; each *scene* (the picker under Anything Goes, under Poké Cup rules,
+   and for player 2) is reached from there once and saved, and every test starts from a
+   scene's state.
+   - `test_editor.py`: opening and closing, DVs, Stat Exp, level, the move list, shiny,
+     Hidden Power, the keyboard.
+   - `test_teams.py`: the edited record in the party and in battle; a registered team
+     after a power cycle; Poké Cup's level range; two players.
+   - `test_without_expansion_pak.py`: the 4 MB test ROM.
+   - Stats are compared with the Generation 2 formula worked out in Python from the base
+     stats in the ROM; the move list with `mod/data/legal_moves.inc.c`; a saved name
+     with the Game Boy codes in `gen_name_keys.py`.
+
+What the editor draws cannot be read from memory, so `screens.py` hashes the editor
+window's pixels in a screenshot and compares with `mod/tests/emu/screens.json` (hashes
+only; no game graphics are kept). The emulated picture has noise that changes every
+frame, so this only works because test runs are frame-exact (below). A hash therefore
+also changes when the button presses leading up to its screenshot change. After looking
+at the new screenshots in `.emu/test/remote`, `UPDATE_SCREENS=1` re-records them.
+
 ## Emulator harness
 
-`tools/mod/emu.sh` drives BizHawk through `mod/lua/remote.lua` (press, wait, shot, save,
-load, read, find, write, eval). BizHawk lives in `.emu/BizHawk`; output in `.emu/remote`.
+`tools/mod/emu.py` drives BizHawk through `mod/lua/remote.lua` (press, wait, shot, save,
+load, read, find, write, eval, reboot). BizHawk lives in `.emu/BizHawk`; output goes to
+`.emu/remote`, or `.emu/test/remote` for the tests. Run it with Windows Python.
+
+- **Frame-exact runs.** Normally the game runs freely between commands. With
+  `S2_REMOTE_STEP=1` (`Emulator(stepping=True)`, which the tests use) the script pauses
+  the game whenever no command is running, so the game sees exactly the frames the
+  commands ask for. After one `reboot` to start counting from frame 0, two runs of the
+  same commands are identical: same frame numbers, same memory, same pixels.
+- **The tests never touch the user's settings.** They pass BizHawk `--config=` a copy
+  (`.emu/test/config.ini`) with two controllers plugged in, and run a copy of the ROM
+  under its own name so its save file starts empty.
+- `reboot` power-cycles the console; the frame counter goes back to 0 and the script
+  keeps running. `client.reboot_core()` called in the middle of a batch ends the batch
+  there with no output, so the command only notes the request and the reboot happens
+  once the batch's output is written.
 
 - Use the **Ares64** core (`"N64": "Ares64"` in `config.ini`). The default Mupen64Plus core
   runs the game but renders black.
 - Memory-write callbacks register but never fire on Ares64, so there are no breakpoints;
   use `find` and static reading instead.
 - With no audio device (a locked or remote session) BizHawk stops at an "Initialization
-  Error" box about the sound device before the Lua script runs, and `emu.sh start` times
-  out. Dismiss the box and the script starts.
+  Error" box about the sound device before the Lua script runs. `emu.py` presses its OK
+  button while it waits for the script.
 - Path to the picker: Start, Start, A, A (map); D-pad Right, Up, A (Free Battle); A, A, A
   (1P vs COM, Normal); A (Anything Goes); A (stage); Right, Right, A (Rental Only).
-- `tools/mod/emu.sh script mod/lua/goto_rental.txt` replays that path from `whitecity`.
-- A savestate carries the cartridge's save data with it, so to test saving, reset with
-  `eval client.reboot_core()` and walk in from the title screen instead of loading one.
+  Against a second player there is no difficulty to pick, so that path is one A shorter.
+  `mod/tests/emu/harness.py` has these as `BOOT`, `FREE_BATTLE` and `SCENES`.
+- `tools/mod/emu.py script mod/lua/goto_rental.txt` replays that path from `whitecity`.
+- A savestate carries the cartridge's save data with it, so to test saving, `reboot` and
+  walk in from the title screen instead of loading one.
 - `player 2` makes the following presses come from controller 2. That needs
-  `"P2Controller": 1` in the Ares64 section of `config.ini`, and savestates made with one
-  controller then stop loading (the load reports success and changes nothing), so set it
-  back to 0 afterwards. With two controllers, Free Battle offers 1P vs 2P: A, Down, A.
-- Savestates: `whitecity`, `fb_rules`, `fb_entry`, `fb_rental` (stock ROM). A state taken
-  with fragment 14 loaded contains that build's mod code, so after rebuilding start from
-  `whitecity`, which predates the entry screen.
+  `"P2Controller": 1` in the Ares64 section of the config, and savestates made with one
+  controller then stop loading (the load reports success and changes nothing).
+  `emu.make_config` writes such a config without changing the user's.
+- Hand-made savestates in `.emu/remote`: `whitecity`, `fb_rules`, `fb_entry`, `fb_rental`
+  (stock ROM). A state taken with fragment 14 loaded contains that build's mod code, so
+  after rebuilding start from `whitecity`, which predates the entry screen. The tests
+  use none of these.
+- The fragment map is indexed by fragment *id*, not by the number in the source file's
+  name: "fragment 14" is linked at `0x81300000`, so its id is 3 and its entry is at
+  `D_800CC630 + 3 * 8`.
 - To reach a battle from the picker: Yes, Start, OK; pick the COM's entry the same way;
   A through the intro; on the "All ready!" screen press the button shown on each of your
   Pokémon, then A. In battle, A opens BATTLE and holding R lists the moves.
