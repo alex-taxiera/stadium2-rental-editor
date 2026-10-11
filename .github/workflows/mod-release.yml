@@ -1,0 +1,95 @@
+name: Rental editor release
+
+# Runs the rental editor's tool tests on every push, drafts a GitHub release when a
+# version tag (v1.2.0) is pushed, and checks the patch once the release is published.
+#
+# The patch is not built here and is not in the repository. Building it takes the
+# original ROM, which must never be uploaded, so the maintainer builds it locally and
+# attaches it to the draft by hand. A release holds the patch only, never a ROM.
+# See "Releases" in mod/NOTES.md.
+
+on:
+  push:
+    branches: [rental-editor]
+    tags: ["v*"]
+  pull_request:
+    branches: [rental-editor]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+env:
+  PATCH: stadium2-rental-editor-us.bps
+
+jobs:
+  verify:
+    name: Tool tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tests that need the ROM or a build skip themselves.
+      - name: Tool tests
+        run: python3 -m unittest discover -s mod/tests -v
+
+      - name: Preview the release notes
+        run: python3 tools/mod/release_notes.py >> "$GITHUB_STEP_SUMMARY"
+
+  draft:
+    name: Draft the release
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Fails, and so drafts nothing, when mod/CHANGELOG.md has no entry for the tag.
+      - name: Write the release notes
+        run: |
+          python3 tools/mod/release_notes.py "$TAG" \
+            --guide-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$TAG/mod/README.md" \
+            > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md" >> "$GITHUB_STEP_SUMMARY"
+
+      # A tag with a hyphen (v1.2.0-rc1) is drafted as a pre-release.
+      - name: Create the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          if [[ "$TAG" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$TAG" --draft --verify-tag --title "Rental editor $TAG" \
+            --notes-file "$RUNNER_TEMP/notes.md" "${flags[@]}"
+
+  # Nothing here can stop a release that is already public; a failure is the alarm that
+  # the wrong file went up.
+  published:
+    name: Check the published patch
+    if: github.event_name == 'release'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The patch is the only file attached
+        run: |
+          assets=$(gh release view "$TAG" --json assets --jq '[.assets[].name] | join(" ")')
+          echo "attached: ${assets:-nothing}"
+          [[ "$assets" == "$PATCH" ]]
+
+      - name: The patch is the one in mod/checksums.txt
+        run: |
+          gh release download "$TAG" --pattern "$PATCH" --dir build
+          grep " build/$PATCH\$" mod/checksums.txt | sha1sum --check --strict -
