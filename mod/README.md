@@ -5,6 +5,8 @@ you pick a rental Pokémon. It opens an editor for the rental's nickname, moves,
 DVs and Stat Exp, limited to what the Game Boy games allow, and the edited Pokémon is
 what enters the battle or the registered team.
 
+![The editor open on a rental Abra](images/editor.png)
+
 The patch is a BPS file. It contains only the changes, not the game.
 
 ## Applying the patch

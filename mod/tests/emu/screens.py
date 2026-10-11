@@ -2,7 +2,7 @@
 
 Game memory says what the editor holds, but not what it painted. For that the tests
 take a screenshot, hash the pixels of the editor's window, and compare the hash with one
-recorded in screens.json. Only hashes are kept: the repository holds no game graphics.
+recorded in screens.json. Only hashes are kept, not the screenshots.
 
 A failing check leaves the screenshot in .emu/test/remote for a look. Recorded hashes
 are replaced by running the tests with UPDATE_SCREENS=1, which is only right after
