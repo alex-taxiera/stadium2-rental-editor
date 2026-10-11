@@ -160,7 +160,23 @@ class Panel:
         self.redraw, = struct.unpack_from(">i", data, 0x00)
         self.state, self.mode, self.controller = data[0x34], data[0x35], data[0x37]
         self.cursor, = struct.unpack_from(">b", data, 0x36)
+        self.item = data[0x39]
+        self.item_list, = struct.unpack_from(">I", data, 0x5C)
         self.model, self.pokemon, self.model_timer = struct.unpack_from(">IIi", data, 0x68)
+
+
+class ItemList:
+    """The ENTER menu's ITEM list: "No item" alone on the top row, then two items a row.
+    The cursor is on entry (top + row) * 2 + column - 1."""
+
+    SIZE = 0x8C
+
+    def __init__(self, data: bytes):
+        self.column, self.row = struct.unpack_from(">2h", data, 0x08)
+        count, = struct.unpack_from(">H", data, 0x50)
+        self.items = list(data[0x10:0x10 + count])
+        self.top, = struct.unpack_from(">h", data, 0x7C)
+        self.state = data[0x87]
 
 
 # --- input ------------------------------------------------------------------------------

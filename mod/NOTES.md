@@ -68,7 +68,12 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
     removes the tint.
   - Checked: player 2 types with controller 2 while controller 1's A, B, Start and D-pad
     do nothing; the keyboard works on the 4 MB test build.
-- Held items are left to the stock ITEM entry, which already handles rentals.
+- **Held items** stay with the stock ITEM entry, which already handles rentals, but its
+  list now offers every item the game classes as worth holding (42) where the stock
+  screen offers six berries plus whatever a Game Pak owns. See "Item list".
+  - Checked: the list holds "No item" and the 42 in the game's order; Leftovers, eight
+    rows down, was chosen for Abra and is in the party record. Names and descriptions
+    draw, and the list scrolls, as it does in the stock game for a Game Pak's items.
 - Nothing has been run on standalone ares or hardware yet. BizHawk's Ares64 core is the
   same emulation core as standalone ares.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
@@ -310,6 +315,50 @@ The chosen record is copied into the party when "Yes" is confirmed; in the Free 
 path the party copy sits at `state + 0x15390`. The battle then works from its own copies
 (six of them, one at `0x800D1C60`). Nothing re-reads the rental table.
 
+### Item list
+
+The ITEM entry opens a list object at `state + 0xD18` (`panel->0x5C`), in
+`fragment14_FD770.c`. **[C]** in source and at runtime.
+
+| Offset | Field |
+|---|---|
+| 0x08, 0x0A | cursor column (0–1) and row on screen (0–3) (s16) |
+| 0x10 | item ids, up to 0x40 bytes; entry 0 is 0, "No item" |
+| 0x50 | number of entries (u16) |
+| 0x54 | mask of items that cannot be taken (32 bytes), given when the list is opened |
+| 0x7C | first row shown (s16) |
+| 0x87 | state: 0 closed, 1 open; the others are its animations |
+
+"No item" has the top row to itself and the items follow two to a row, so the cursor is
+on entry `(top + row) * 2 + column - 1`. Four rows show at a time.
+
+- **What is offered** is a mask of 256 bits, one per item id (`func_81601980` tests a
+  bit, `func_816019C0` sets one, `func_81601A38` fills the mask). `func_81300244` builds
+  it in `D_81312A40` each time a player picks where their Pokémon come from: six berries
+  (`func_81601A78`: PRZCureBerry, Burnt, Ice, Bitter and Mint Berry, Berry), plus the
+  items found on a connected Game Pak (`func_81601B00`).
+- **The list** is made from the mask by `func_81602134`, called from the list's setup,
+  `func_81306B64(list, x, y, arg3, mask)`. An item is listed when its bit is set and
+  `func_81601FA0(item)` gives it a group from 1 to 5, and the list runs group by group:
+  1 the six berries, 2 healing (hold effect below 0x11), 3 other effects, 4 type boosts
+  (hold effects 0x32–0x42), 5 the species items. Group 0 is not listed: no hold effect
+  (`func_80063660`, the table at `D_80097FED`, three bytes an item), or one with no use
+  in a battle (Amulet Coin, Cleanse Tag, Smoke Ball).
+- **The mod** hooks `func_81306B64` and passes a mask with every bit set
+  (`Mod_ItemListInit`), so the list is what a Game Pak owning every item would give: 42
+  items, 43 entries. The game's own mask is left as it was.
+- **What cannot be taken** is separate and unchanged: a second mask, kept at
+  `panel->0x3C`. `func_8130EA8C` puts the species items of other species in it
+  (`func_81601D24`: Light Ball for Pikachu, Lucky Punch for Chansey, Stick for
+  Farfetch'd, Metal Powder for Ditto, Thick Club for Cubone and Marowak), and
+  `func_81304788(party, mask, slot)` builds one of the items the rest of the party
+  holds, unless the rules allow two of an item (`func_80071230`). **[I]** that the two
+  end up in the same mask. `func_81306C18(list, item, mask, …)` opens the list with it,
+  on the Pokémon's item or else the first one free.
+- Choosing an item enters the Pokémon at once (`func_8130F0FC`: the item goes to
+  `panel->0x39`, the cursor to Yes, and the panel closes).
+- The line under the list is `func_816020BC(item)`, text bank 9: the item's description.
+
 ### Redrawing
 
 The screen does not repaint every frame. Each frame a widget registers its rectangle with
@@ -492,6 +541,7 @@ build tools or to the commit of the decompilation the mod sits on.
      Hidden Power, the keyboard.
    - `test_teams.py`: the edited record in the party and in battle; a registered team
      after a power cycle; Poké Cup's level range; two players.
+   - `test_items.py`: what the ITEM list offers, and an item from it reaching the party.
    - `test_without_expansion_pak.py`: the 4 MB test ROM.
    - Stats are compared with the Generation 2 formula worked out in Python from the base
      stats in the ROM; the move list with `mod/data/legal_moves.inc.c`; a saved name
@@ -507,13 +557,14 @@ at the new screenshots in `.emu/test/remote`, `UPDATE_SCREENS=1` re-records them
 ### Moving to a newer base
 
 The mod only depends on the decompilation for the game's symbols, the build tools, and
-the assembly of the three functions it hooks (`mod/hooks.txt`). Before rebasing, compare
+the assembly of the four functions it hooks (`mod/hooks.txt`). Before rebasing, compare
 the old and new base:
 
     git fetch origin
     git diff --name-only <base> origin/master -- . ':!src' ':!docs' ':!COVERAGE.md'    # build or tools changed?
     git diff --name-only <base> origin/master -- src/fragments/14/fragment14_FA520.c \
-        src/fragments/14/fragment14_104FC0.c hand_asm                                   # hooked code changed?
+        src/fragments/14/fragment14_104FC0.c src/fragments/14/fragment14_FD770.c \
+        hand_asm                                                                        # hooked code changed?
 
 If both are empty, rebase, rebuild (`wsl_build.sh`, then `wsl_build.sh mod`) and run the
 three test layers. The checksums should not change. If a hooked function has been
@@ -671,13 +722,13 @@ Tests: `python3 -m unittest discover -s mod/tests` (22 tests).
 
 Answered: the rental expander (`func_80071E48`), what registered teams store (full
 data), the fragment map (240 entries, ID 0x40 free), the ENTER menu's handlers and that
-they are shared by every mode, that an edited record reaches battle, and that a
-registered edited team loads back unchanged after a reset. Remaining:
+they are shared by every mode, that an edited record reaches battle, that a
+registered edited team loads back unchanged after a reset, and how the ITEM list works
+(see "Item list"). Remaining:
 
 1. Where cup level rules are stored (`D_82B0865C` and the rule flag word are leads).
 2. Whether EDIT behaves in the Stadium cups and Gym Leader Castle, which use the same
    entry screen under other rule sets.
-3. How the existing ITEM picker scrolls, in case its widget suits the stat editor.
 
 Players pick one after another on the same screen, each with their own controller
 (`panel->0x37`), so the editor's single state is enough.
