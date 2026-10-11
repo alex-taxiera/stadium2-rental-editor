@@ -50,6 +50,17 @@ typedef struct Pokemon {
 #define SPECIES_SMEARGLE 235
 #define MOVE_HIDDEN_POWER 237
 
+/* A name is at most ten characters, the Game Boy's limit, and a zero byte ends it.
+ * Registered teams store it in the Game Boy's character codes (func_800615D0), so it
+ * may only use characters that have one; see tools/mod/gen_name_keys.py. */
+#define MAX_NAME_LENGTH 10
+
+char *func_8004B7A4(s32 species); /* the species name, which is also the default nickname */
+#define Species_Name func_8004B7A4
+
+char *HAL_Strcpy(char *dst, char *src);
+s32 HAL_Strcmp(char *a, char *b);
+
 void func_800619E8(Pokemon *mon);            /* level from experience, then all six stats */
 s32 func_80061B88(s32 species, u16 level);   /* experience needed for a level */
 void func_80061F44(Pokemon *mon);            /* full HP, no status, PP refilled */
@@ -135,6 +146,7 @@ extern Pad D_800CE060[4];
 
 #define BTN_A 0x8000
 #define BTN_B 0x4000
+#define BTN_START 0x1000
 #define BTN_L 0x0020
 #define BTN_R 0x0010
 #define BTN_DUP 0x0800

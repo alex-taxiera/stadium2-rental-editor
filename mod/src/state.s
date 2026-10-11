@@ -15,4 +15,4 @@ glabel Edit_GetState
 
 # sizeof(EditState), rounded up; see mod/include/edit.h
 dlabel gEditState
-    .space 0x110
+    .space 0x170
