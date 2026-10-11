@@ -499,7 +499,7 @@ build tools or to the commit of the decompilation the mod sits on.
 
 What the editor draws cannot be read from memory, so `screens.py` hashes the editor
 window's pixels in a screenshot and compares with `mod/tests/emu/screens.json` (hashes
-only; no game graphics are kept). The emulated picture has noise that changes every
+only; the screenshots are not kept). The emulated picture has noise that changes every
 frame, so this only works because test runs are frame-exact (below). A hash therefore
 also changes when the button presses leading up to its screenshot change. After looking
 at the new screenshots in `.emu/test/remote`, `UPDATE_SCREENS=1` re-records them.
@@ -561,6 +561,11 @@ and whoever has the ROM attaches the patch they built:
   mod lives on `rental-editor`, which is the default branch of the repository it is
   published from. Rebasing it onto a newer base rewrites its commits, so a release's tag
   is what keeps that release's commit.
+- **Front page.** `.github/README.md` is what GitHub shows for the repository: it takes
+  a README there in preference to the one in the root. That leaves the decompilation's
+  `README.md` untouched, so it never conflicts in a rebase. Links in it are relative to
+  `.github/`. Its screenshots are in `mod/images/`: test screenshots from
+  `.emu/test/remote`, reduced to 256 colours.
 - **Why a changelog by hand.** After a rebase every commit of the mod is new, and between
   two tags lie hundreds of decompilation commits, so notes generated from the commit log
   or from pull requests would be wrong.
