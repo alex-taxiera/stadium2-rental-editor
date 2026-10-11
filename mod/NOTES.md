@@ -525,6 +525,50 @@ the new name.
 2026-10-11, `e06da865` → `e82d7f7`: both comparisons empty, no conflicts, the stock ROM
 matched, and the mod ROM and patch were byte for byte the same as before.
 
+## Releases
+
+A release is the patch and nothing else: never a ROM, patched or not, and nothing made
+from one (the ELF, extracted assembly, savestates). GitHub adds the source archives.
+
+Building the patch takes the original ROM, so GitHub cannot build it, and the patch is
+not kept in the repository either. `.github/workflows/mod-release.yml` drafts the release
+and whoever has the ROM attaches the patch they built:
+
+1. Build and run the three test layers. If the mod changed, `checksums.py update`.
+2. Add a `## vX.Y.Z` entry at the top of [CHANGELOG.md](CHANGELOG.md), written for someone
+   who plays the mod. `python3 tools/mod/release_notes.py` prints the notes as they will
+   appear.
+3. Commit, then tag that commit and push both:
+
+       git tag v0.1.0
+       git push <remote> rental-editor v0.1.0
+
+   The tag's run creates the draft "Rental editor v0.1.0". Its notes are the changelog
+   entry, the patching instructions and the checksums from `mod/checksums.txt`. A tag
+   with a hyphen (`v0.2.0-rc1`) is marked a pre-release. A tag with no changelog entry
+   fails and drafts nothing; add the entry, then delete and push the tag again.
+4. From the checkout the tag was made in, attach the patch and publish:
+
+       python3 tools/mod/checksums.py check
+       gh release upload v0.1.0 build/stadium2-rental-editor-us.bps
+       gh release edit v0.1.0 --draft=false
+
+   Publishing starts one more run, which fails if anything but the patch is attached or
+   if the patch is not the one in the tag's `mod/checksums.txt`. The release is public by
+   then, so a failure means: replace the file.
+
+- **Branches.** `master` only follows the decompilation and takes no commits of ours. The
+  mod lives on `rental-editor`, which is the default branch of the repository it is
+  published from. Rebasing it onto a newer base rewrites its commits, so a release's tag
+  is what keeps that release's commit.
+- **Why a changelog by hand.** After a rebase every commit of the mod is new, and between
+  two tags lie hundreds of decompilation commits, so notes generated from the commit log
+  or from pull requests would be wrong.
+- **The decompilation's workflows** (ROM gate, coverage, baseline image) belong to
+  `michiiik/pokestadiumgs` and its self-hosted runner. In another repository they fail
+  or wait for a runner that never comes; switch them off there with
+  `gh workflow disable`, which leaves the files alone so a rebase stays clean.
+
 ## Emulator harness
 
 `tools/mod/emu.py` drives BizHawk through `mod/lua/remote.lua` (press, wait, shot, save,
