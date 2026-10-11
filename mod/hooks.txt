@@ -1,0 +1,11 @@
+# Hooks into the stock game. See tools/mod/modtool.py.
+#
+# kind  stock function  target in the mod fragment
+
+# Fragment 14's setup, run once when the entry screen starts. Loading the mod here
+# puts it in memory before any other hook can fire, and before the screen claims
+# the rest of the main pool for itself.
+boot    func_8130251C   orig_func_8130251C
+
+# Draws the ENTER / EXCHANGE menu beside the detail panel.
+jump    func_8130DA04   Mod_DrawEnterMenu
