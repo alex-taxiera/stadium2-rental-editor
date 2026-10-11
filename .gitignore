@@ -35,3 +35,4 @@ tools/vtxdis
 # Rental editor mod
 mod/data/cache/
 expected/
+.emu/
