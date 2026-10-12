@@ -63,7 +63,7 @@ pull_artifacts() {
     mkdir -p "$SRC/build"
     local f
     for f in "pokestadiumgs-$VERSION.z64" "pokestadiumgs-$VERSION.map" "pokestadiumgs-$VERSION.elf" \
-             "pokestadiumgs-$VERSION-mod.z64" "pokestadiumgs-$VERSION-mod-4mb.z64"              "stadium2-rental-editor-$VERSION.bps" "mod/mod.elf"; do
+             "pokestadiumgs-$VERSION-mod.z64" "pokestadiumgs-$VERSION-mod-4mb.z64"              "stadium2-rental-editor-$VERSION.bps" "mod/mod.elf" "mod/patched.o"; do
         if [[ -f "$MIRROR/build/$f" ]]; then
             mkdir -p "$(dirname "$SRC/build/$f")"
             cp -f "$MIRROR/build/$f" "$SRC/build/$f"

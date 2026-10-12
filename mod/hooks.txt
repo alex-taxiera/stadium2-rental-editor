@@ -15,3 +15,18 @@ jump    func_8130EC9C   Mod_EnterMenuInput
 
 # Sets up the ITEM list from the mask of items on offer.
 jump    func_81306B64   Mod_ItemListInit
+
+# Asks the menu shown once a team is chosen (OK / OK to Register / ...) for its
+# result and acts on it. Runs from the mod only so that its call to the menu can be
+# pointed at Mod_PollTeamMenu (mod/asm_patches.txt); its switch leads back into the
+# stock body, hence `detour`.
+detour  func_81303648   orig_func_81303648
+
+# Sets up the team a side is about to choose, with its name.
+jump    func_81302EE4   Mod_PartyInit
+
+# Draws one entry of a popup menu.
+jump    func_813114B8   Mod_DrawMenuRow
+
+# Draws a popup menu.
+jump    func_81311650   Mod_DrawMenu

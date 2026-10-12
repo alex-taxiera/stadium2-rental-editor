@@ -24,6 +24,14 @@ UPDATE = os.environ.get("UPDATE_SCREENS") == "1"
 WINDOW = (56, 77, 583, 244)
 # The inside of the ENTER menu box, where EDIT and the key hints go.
 SIDEBAR = (456, 264, 584, 391)
+# The inside of the trainer window (mod/src/trainer.c).
+TRAINER = (118, 263, 519, 440)
+# The team menu's entries, in the same place.
+TEAM_MENU = (212, 263, 425, 440)
+# Player 1's picture where the two sides are set against each other before a battle,
+# and the title and name under it.
+VERSUS = (70, 60, 160, 150)
+VERSUS_LABEL = (56, 178, 186, 234)
 # The box in the detail panel that shows the Pokemon's 3D model.
 MODEL = (80, 296, 138, 354)
 

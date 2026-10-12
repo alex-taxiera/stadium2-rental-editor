@@ -7,3 +7,7 @@
 # fourth menu entry. Icon y 0x6C -> 0x74, text y 0x70 -> 0x78.
 func_8130DA04   8130DB68  addiu       $a1, $v1, 0x74
 func_8130DA04   8130DDC8  addiu       $a1, $a1, 0x78
+
+# Team menu: ask the mod for its result instead of the menu itself (func_81311C70),
+# with the same arguments.
+func_81303648   81303670  jal         Mod_PollTeamMenu

@@ -341,14 +341,14 @@ static void Edit_MoveListCursor(EditState *state, s32 delta) {
 
 /* The buttons to act on this frame: those just pressed, plus any of `repeating` held
  * long enough, so long lists, big numbers and the keyboard are quick. */
-s32 Edit_RepeatedButtons(EditState *state, Pad *pad, s32 repeating) {
+s32 Edit_RepeatedButtons(u8 *timer, Pad *pad, s32 repeating) {
     s32 buttons = pad->pressed;
     s32 held = pad->held & repeating;
 
     if (held == 0 || (pad->pressed & held)) {
-        state->repeatTimer = 0;
-    } else if (++state->repeatTimer >= REPEAT_DELAY) {
-        state->repeatTimer = REPEAT_DELAY - REPEAT_RATE;
+        *timer = 0;
+    } else if (++*timer >= REPEAT_DELAY) {
+        *timer = REPEAT_DELAY - REPEAT_RATE;
         buttons |= held;
     }
     return buttons;
@@ -467,7 +467,7 @@ static void Edit_AdjustField(EditState *state, DetailPanel *panel, s32 steps, s3
 }
 
 static void Edit_UpdateAdjust(EditState *state, Pad *pad, DetailPanel *panel) {
-    s32 buttons = Edit_RepeatedButtons(state, pad, BTN_DUP | BTN_DDOWN);
+    s32 buttons = Edit_RepeatedButtons(&state->repeatTimer, pad, BTN_DUP | BTN_DDOWN);
 
     if (pad->pressed & (BTN_A | BTN_B)) {
         Sound_Play(SOUND_CONFIRM);
@@ -492,7 +492,7 @@ static void Edit_UpdateAdjust(EditState *state, Pad *pad, DetailPanel *panel) {
 
 static void Edit_UpdateList(EditState *state, Pad *pad, DetailPanel *panel) {
     Pokemon *mon = panel->pokemon;
-    s32 buttons = Edit_RepeatedButtons(state, pad, BTN_DUP | BTN_DDOWN);
+    s32 buttons = Edit_RepeatedButtons(&state->repeatTimer, pad, BTN_DUP | BTN_DDOWN);
     s32 slot = state->row;
     s32 move;
 

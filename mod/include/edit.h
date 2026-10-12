@@ -52,7 +52,8 @@ typedef struct EditState {
     /* 0x164 */ u16 bracketPhase; /* where the brackets around a field are in their cycle */
     /* 0x166 */ s16 scroll;       /* the scroll bar's knob, 0 to SCROLL_UNITS, gliding to where the list is */
     /* 0x168 */ f32 pointerTimer; /* where the hand in the move list is in its slide */
-} EditState; /* size = 0x16C */
+    /* 0x16C */ u8 nameMax;       /* how long the name being typed may get */
+} EditState; /* size = 0x170 */
 
 #define SCROLL_UNITS 256
 
@@ -79,7 +80,7 @@ s32 Edit_HpDv(Pokemon *mon);
 s32 Edit_GetDv(Pokemon *mon, s32 row);
 s32 Edit_MoveType(Pokemon *mon, s32 move);
 s32 Edit_MovePower(Pokemon *mon, s32 move);
-s32 Edit_RepeatedButtons(EditState *state, Pad *pad, s32 repeating);
+s32 Edit_RepeatedButtons(u8 *timer, Pad *pad, s32 repeating);
 void Edit_ReloadLook(DetailPanel *panel);
 
 /* edit_name.c */
@@ -87,8 +88,16 @@ void Edit_OpenName(EditState *state, DetailPanel *panel);
 void Edit_UpdateName(EditState *state, Pad *pad, DetailPanel *panel);
 s32 Edit_NameKey(s32 page, s32 row, s32 col);
 
+/* The keyboard by itself, for any name: it uses the state's keyboard fields and leaves
+ * the rest alone. Edit_UpdateKeyboard says each frame how things stand; once done, the
+ * name is in `state->name`. */
+enum { KEYBOARD_TYPING, KEYBOARD_DONE, KEYBOARD_CANCELLED };
+void Edit_OpenKeyboard(EditState *state, char *name, s32 maxLength);
+s32 Edit_UpdateKeyboard(EditState *state, Pad *pad);
+
 /* edit_draw.c */
 void Edit_DrawWindow(DetailPanel *panel);
 void Edit_DrawSidebar(DetailPanel *panel);
+void Edit_DrawKeyboard(EditState *state, char *heading);
 
 #endif
