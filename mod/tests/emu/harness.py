@@ -43,6 +43,9 @@ PICKER_STATE = 0x81317800      # D_81317800
 INTRO_VRAM = 0x82600000        # fragment 20: the opponent's introduction, and the result after a battle
 INTRO_STATE = 0x8261A490       # D_8261A490: its mode (0 before a battle, 1 after), and at +0xC8 each side's picture
 PARTY_CELL = 0x15390           # in the picker's state: the first Pokemon entered
+PARTY_STATE = 0x15370 + 0x4DBD   # in the picker's state: what the team being chosen is doing
+# Its menu is up; the list has the cursor; its own box has; it waits on the detail panel.
+PARTY_MENU, PARTY_LIST, PARTY_BOX, PARTY_PANEL = 4, 0xD, 0x11, 0xE
 BATTLE_RECORD = 0x800D1C60     # player 1's first Pokemon during a battle
 POOL_FREE = 0x800CCDCC         # bytes free in the main pool
 RAM_SIZE = 0x800871F4          # D_800871F4
@@ -164,7 +167,7 @@ class Record:
 class EditState:
     """The editor's state; see `EditState` in mod/include/edit.h."""
 
-    SIZE = 0x16C
+    SIZE = 0x170
     OFF, FIELDS, ADJUST, MOVE_LIST, NAME = range(5)
     COL_MOVES, COL_HAPPINESS, COL_DV, COL_STAT_EXP = range(4)
     SCROLL_UNITS = 256   # the scroll bar's knob at the bottom
@@ -178,6 +181,7 @@ class EditState:
         self.key_col, self.key_row, self.name_length = data[0x10C], data[0x10D], data[0x10E]
         self.name = data[0x110:0x11B].split(b"\0")[0]
         self.scroll, = struct.unpack_from(">h", data, 0x166)
+        self.pending, self.direct = data[0x16D], data[0x16E]
 
 
 class Panel:
@@ -185,6 +189,8 @@ class Panel:
 
     SIZE = 0x74
     CLOSED, MENU = 0, 1
+    ENTER, EXCHANGE = 0, 1   # its modes: for a Pokemon from the list, and for one of the team
+    YES, NO = 0, 1           # its menu's first two rows; EDIT comes after the stock ones
 
     def __init__(self, data: bytes):
         self.redraw, = struct.unpack_from(">i", data, 0x00)
@@ -279,8 +285,18 @@ SCENES = {
 
 # In the picker: enter the first rental, then Start for the menu a chosen team gets.
 TEAM_MENU = press("A", 60) + press("A", 90) + press("Start", 60)
-# From there: Change Trainer, the entry after the stock five.
-OPEN_TRAINER = TEAM_MENU + presses(DOWN, 5, 12) + press("A", 30)
+# From that menu on OK: Reselect some, the third of the stock five, and the mod's two
+# after them, Edit POKeMON and Change Trainer.
+RESELECT_SOME = presses(DOWN, 2, 12) + press("A", 30)
+EDIT_POKEMON = presses(DOWN, 5, 12) + press("A", 30)
+CHANGE_TRAINER = presses(DOWN, 6, 12) + press("A", 30)
+OPEN_TRAINER = TEAM_MENU + CHANGE_TRAINER
+# With the cursor in the team's box, as the first two of those leave it: open the Pokemon
+# it is on. After Edit POKeMON that is the editor; after Reselect some, the EXCHANGE menu
+# on Yes, where EDIT is two rows down.
+OPEN_MEMBER = press("A", 60)
+EXCHANGE_EDIT = presses(DOWN, 2) + press("A", 30)
+OPEN_TEAM_EDITOR = TEAM_MENU + EDIT_POKEMON + OPEN_MEMBER
 
 # In the picker: open the first rental (Abra) and choose EDIT.
 OPEN_PANEL = press("A", 60)
@@ -361,10 +377,19 @@ class Session:
         """The Pokemon open in the editor."""
         return Record(self.read(self.panel().pokemon, RECORD_SIZE))
 
+    def party_cell(self, index: int = 0) -> int:
+        """Where a Pokemon entered in the picker is kept: its record, and the rest of its cell."""
+        base, _ = self.fragment(PICKER_VRAM)
+        return base + PICKER_STATE - PICKER_VRAM + PARTY_CELL + index * 0xCE8
+
     def party(self, index: int = 0) -> Record:
         """A Pokemon entered in the picker."""
+        return Record(self.read(self.party_cell(index), RECORD_SIZE))
+
+    def party_state(self) -> int:
+        """What the team being chosen is doing: PARTY_MENU and the like."""
         base, _ = self.fragment(PICKER_VRAM)
-        return Record(self.read(base + PICKER_STATE - PICKER_VRAM + PARTY_CELL + index * 0xCE8, RECORD_SIZE))
+        return self.read(base + PICKER_STATE - PICKER_VRAM + PARTY_STATE, 1)[0]
 
     def team_menu(self) -> Menu:
         """The picker's popup menu."""

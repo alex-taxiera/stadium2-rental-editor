@@ -40,10 +40,14 @@ class WithoutExpansionPakTest(h.EmulatorTest):
         self.assertEqual(record.dvs, 0xAAAA)
         self.assertEqual(record.nickname, b"ABRAA")
         self.assertStatsFollow(record)
-        # Then out of the editor, the Pokemon entered, and a trainer picture and a title
-        # read from the ROM.
-        self.do(*press("B", 30), *press("A", 90), *press("Start", 60), *presses(DOWN, 5, 12), *press("A", 30),
-                *presses(RIGHT, 3), *press(UP), *press(h.LEFT))
+        # Then out of the editor and the Pokemon entered; the editor again on it where it
+        # now is, with another change that reloads the model.
+        self.do(*press("B", 30), *press("A", 90), *press("Start", 60), *h.EDIT_POKEMON, *h.OPEN_MEMBER,
+                *press(RIGHT), *press("A"), *press("L"), *press("A"), "wait 30", *presses("B", 2, 40))
+        self.assertEqual(self.s.party().dvs, 0x0AAA)
+        self.assertStatsFollow(self.s.party())
+        # And a trainer picture and a title read from the ROM.
+        self.do(*h.CHANGE_TRAINER, *presses(RIGHT, 3), *press(UP), *press(h.LEFT))
         self.assertEqual(self.s.trainer_state().title_text, b"RIVAL")
         self.do(*press("A", 40))
         self.assertEqual(self.s.trainer_choices(), [3, 0, 0, 0])

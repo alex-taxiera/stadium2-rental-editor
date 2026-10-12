@@ -38,6 +38,8 @@
 #define TRAINER_REGION_KEY ((s32)Trainer_GetState())
 #define KEYBOARD_REGION_KEY (TRAINER_REGION_KEY + 1)
 
+static char sEditPokemon[] = "Edit POK\xE9MON";
+static char sEditWhich[] = "Edit which POK\xE9MON?";
 static char sChangeTrainer[] = "Change Trainer";
 static char sHeading[] = "TRAINER";
 static char sName[] = "NAME";
@@ -87,30 +89,69 @@ static void Trainer_LoadTitle(TrainerState *state) {
     state->titleText[TRAINER_TITLE_BYTES - 1] = '\0';
 }
 
-/* The stock team menu with "Change Trainer" as one more entry, or the stock one itself
- * where the entry has no place: the COM's team has no player behind it. */
-static MenuDef *Trainer_ExtendMenu(TrainerState *state, Menu *menu, MenuDef *def) {
+/* Whether the team being chosen has a rental on it: the editor takes nothing else. */
+static s32 Trainer_TeamHasRental(u8 *state) {
+    ListCell *cells = (ListCell *)(state + ENTRY_STATE_PARTY + PARTY_CELLS);
     s32 i;
 
-    if (def == NULL || def->count >= TEAM_MENU_MAX_ENTRIES || Trainer_SidePort(Trainer_EntryState(menu)) < 0) {
+    for (i = 0; i < PARTY_SIZE; i++) {
+        if (cells[i].pokemon.species != 0 && (cells[i].pokemon.flags & POKEMON_FLAG_RENTAL)) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static void Trainer_AddEntry(TrainerState *state, MenuDef *def, s32 result, char *label) {
+    MenuEntry *entry = &state->entries[state->menu.count++];
+    s32 width = def->marginLeft + Text_Width(def->font, def->fontArg + 2, label) + def->marginRight;
+
+    /* The text here is only measured, when the menu opens; Mod_DrawMenuRow draws the
+     * entry's own. */
+    entry->text = def->entries[0].text;
+    entry->unk02 = 0;
+    entry->result = result;
+    entry->centred = 0;
+    if (width > state->minWidth) {
+        state->minWidth = width;
+    }
+}
+
+/* The stock team menu with the mod's entries after its own, each only where it has a
+ * place: "Edit POKeMON" for a team with a rental on it, and "Change Trainer" unless the
+ * team is the COM's, which has no player behind it. With neither, the stock one itself. */
+static MenuDef *Trainer_ExtendMenu(TrainerState *state, Menu *menu, MenuDef *def) {
+    u8 *entry = Trainer_EntryState(menu);
+    s32 extras = 0;
+    s32 i;
+
+    if (def == NULL || def->count + 2 > TEAM_MENU_MAX_ENTRIES) {
         return def;
     }
-    if (state->source != def) {
+    if (Trainer_TeamHasRental(entry)) {
+        extras |= TEAM_MENU_EDIT;
+    }
+    if (Trainer_SidePort(entry) >= 0) {
+        extras |= TEAM_MENU_TRAINER;
+    }
+    if (extras == 0) {
+        return def;
+    }
+    if (state->source != def || state->extras != extras) {
         state->source = def;
+        state->extras = extras;
         state->menu = *def;
         for (i = 0; i < def->count; i++) {
             state->entries[i] = def->entries[i];
         }
-        /* The text here is only measured, when the menu opens; Mod_DrawMenuRow draws
-         * the entry's own. */
-        state->entries[i].text = def->entries[0].text;
-        state->entries[i].unk02 = 0;
-        state->entries[i].result = MENU_RESULT_TRAINER;
-        state->entries[i].centred = 0;
-        state->menu.count = def->count + 1;
         state->menu.entries = state->entries;
-        state->minWidth = def->marginLeft + Text_Width(def->font, def->fontArg + 2, sChangeTrainer) +
-                          def->marginRight;
+        state->minWidth = 0;
+        if (extras & TEAM_MENU_EDIT) {
+            Trainer_AddEntry(state, def, MENU_RESULT_EDIT, sEditPokemon);
+        }
+        if (extras & TEAM_MENU_TRAINER) {
+            Trainer_AddEntry(state, def, MENU_RESULT_TRAINER, sChangeTrainer);
+        }
     }
     return &state->menu;
 }
@@ -247,9 +288,11 @@ static void Trainer_Update(TrainerState *state, Pad *pad) {
 
 /**
  * Stands in for func_81311C70 where func_81303648 asks the team menu for its result,
- * once a frame while a team is chosen and awaits OK. The menu it is given has "Change
- * Trainer" added; choosing that opens the trainer window, which then gets the input
- * until it closes, and the menu comes back the frame after.
+ * once a frame while a team is chosen and awaits OK. The menu it is given has the mod's
+ * entries added. "Change Trainer" opens the trainer window, which then gets the input
+ * until it closes, and the menu comes back the frame after. "Edit POKeMON" is answered
+ * as "Reselect some", which sends the cursor to the team's box, with the editor told to
+ * open on whichever of the team is chosen there.
  */
 s32 Mod_PollTeamMenu(Menu *menu, MenuDef *def, s32 controller, s32 textArg) {
     TrainerState *state = Trainer_GetState();
@@ -258,6 +301,8 @@ s32 Mod_PollTeamMenu(Menu *menu, MenuDef *def, s32 controller, s32 textArg) {
     if (state->open) {
         Trainer_Update(state, &gPads[state->controller]);
     } else {
+        /* Back at the menu, nobody is being chosen for the editor any more. */
+        Edit_SetPending(FALSE);
         def = Trainer_ExtendMenu(state, menu, def);
         result = Menu_Poll(menu, def, controller, textArg);
         if (def == &state->menu && menu->def == def && menu->width < state->minWidth) {
@@ -267,6 +312,9 @@ s32 Mod_PollTeamMenu(Menu *menu, MenuDef *def, s32 controller, s32 textArg) {
         if (result == MENU_RESULT_TRAINER) {
             Trainer_Open(state, menu, controller);
             result = 0;
+        } else if (result == MENU_RESULT_EDIT) {
+            Edit_SetPending(TRUE);
+            result = TEAM_MENU_RESELECT_SOME;
         }
     }
     if (state->open && state->typing) {
@@ -293,24 +341,41 @@ void Mod_PartyInit(u8 *party, u8 *state, char *name, s32 id, void *arg4, void *a
 
 /**
  * Replaces func_813114B8, which draws one entry of a popup menu from its text bank.
- * "Change Trainer" is in no text bank, so it is drawn here the way the stock function
- * draws the rest.
+ * The mod's entries are in no text bank, so they are drawn here the way the stock
+ * function draws the rest. So is the question over the team's box after "Edit POKeMON",
+ * where the game, taking it for "Reselect some", asks which to exchange: the box was
+ * measured for that, and the shorter question goes in the middle of it.
  */
 void Mod_DrawMenuRow(Menu *menu, s32 row) {
     TrainerState *state = Trainer_GetState();
     MenuDef *def = menu->def;
+    char *label;
+    s32 room;
 
-    if (def != &state->menu || row != def->count - 1) {
+    if (Edit_GetState()->pending && def->textBank == ENTRY_TEXT_BANK &&
+        def->entries[row].text == ENTRY_TEXT_EXCHANGE_WHICH) {
+        /* Measured before the font is set: with this font, measuring in between left
+         * nothing drawn. */
+        room = menu->width - def->marginLeft - def->marginRight -
+               Text_Width(def->font, def->fontArg + 2, sEditWhich);
+        Text_SetColor(0xFF, 0xFF, 0xFF, 0xFF);
+        Text_SetFont(def->font, def->fontArg + 2);
+        Text_Draw(menu->x + def->marginLeft + room / 2, menu->y + def->marginTop + def->rowSpacing * row,
+                  sEditWhich);
+        return;
+    }
+    if (def != &state->menu || row < state->source->count) {
         orig_func_813114B8(menu, row);
         return;
     }
+    label = def->entries[row].result == MENU_RESULT_EDIT ? sEditPokemon : sChangeTrainer;
     if (menu->highlight && row == menu->cursor) {
         Text_SetColor(0xFF, 0xFF, 0, 0xFF);
     } else {
         Text_SetColor(0xFF, 0xFF, 0xFF, 0xFF);
     }
     Text_SetFont(def->font, def->fontArg + 2);
-    Text_Draw(menu->x + def->marginLeft, menu->y + def->marginTop + def->rowSpacing * row, sChangeTrainer);
+    Text_Draw(menu->x + def->marginLeft, menu->y + def->marginTop + def->rowSpacing * row, label);
 }
 
 /* Writes `value` in decimal ending at `end`, and returns where it starts. */

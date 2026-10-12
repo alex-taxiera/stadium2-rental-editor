@@ -7,9 +7,10 @@ import unittest
 
 import harness as h
 import screens
-from harness import DOWN, LEFT, RIGHT, UP, Menu, TrainerState, press, presses
+from harness import DOWN, LEFT, RIGHT, UP, EditState, Menu, TrainerState, press, presses
 
 STOCK_ENTRIES = 5    # OK, OK to Register, Reselect some, Reselect all, Change Item
+MOD_ENTRIES = 2      # Edit POKeMON, Change Trainer
 LAST = h.NUM_PICTURES   # the last picture; 0 is the game's own
 CAL = (0x14, 2)      # the first opponent of Free Battle, as the game pictures him
 GYM_LEADER, RIVAL = 0x28, 0x2A   # titles, by number; the last two the window steps through
@@ -45,14 +46,16 @@ class TrainerTest(h.EmulatorTest):
     def test_team_menu_has_one_more_entry(self):
         self.start(*h.TEAM_MENU)
         menu = self.s.team_menu()
-        self.assertEqual((menu.status, menu.count, menu.cursor), (Menu.OPEN, STOCK_ENTRIES + 1, 0))
+        self.assertEqual((menu.status, menu.count, menu.cursor), (Menu.OPEN, STOCK_ENTRIES + MOD_ENTRIES, 0))
         screens.check(self, "team_menu", self.s.shot("team_menu"), screens.TEAM_MENU)
 
         # The stock entries still do what they did: OK goes on to the COM's team, whose
-        # menu has no such entry, there being no player behind it.
+        # menu has Edit POKeMON but no Change Trainer, there being no player behind it.
         self.do(*press("A", 240), *h.RENTAL_ONLY, *h.TEAM_MENU)
         menu = self.s.team_menu()
-        self.assertEqual((menu.status, menu.count), (Menu.OPEN, STOCK_ENTRIES))
+        self.assertEqual((menu.status, menu.count), (Menu.OPEN, STOCK_ENTRIES + 1))
+        self.do(*h.EDIT_POKEMON, *h.OPEN_MEMBER)
+        self.assertEqual((self.s.edit_state().mode, self.s.panel().pokemon), (EditState.FIELDS, self.s.party_cell()))
 
     def test_window_steps_round_every_picture(self):
         self.start(*h.OPEN_TRAINER)
@@ -91,9 +94,9 @@ class TrainerTest(h.EmulatorTest):
         self.assertEqual(self.s.party_name(), b"")
         # The menu is back, on OK.
         menu = self.s.team_menu()
-        self.assertEqual((menu.status, menu.count, menu.cursor), (Menu.OPEN, STOCK_ENTRIES + 1, 0))
+        self.assertEqual((menu.status, menu.count, menu.cursor), (Menu.OPEN, STOCK_ENTRIES + MOD_ENTRIES, 0))
 
-        self.do(*presses(DOWN, 5, 12), *press("A", 30))
+        self.do(*h.CHANGE_TRAINER)
         self.assertShows(0)
         state = self.s.trainer_state()
         self.assertEqual((state.name, state.title_text), (b"", b"POK\xe9MON TRAINER"))
@@ -105,7 +108,7 @@ class TrainerTest(h.EmulatorTest):
         self.assertEqual(self.s.trainer_choices(), [choice, 0, 0, 0])
 
         # The window opens on it the next time.
-        self.do(*presses(DOWN, 5, 12), *press("A", 30))
+        self.do(*h.CHANGE_TRAINER)
         self.assertShows(choice)
         self.do(*press("B", 40))
 
@@ -163,7 +166,7 @@ class TrainerTest(h.EmulatorTest):
         self.assertEqual((self.s.trainer_names()[0], self.s.party_name()), (b"ASH", b"ASH"))
 
         # The window has the name; END on an empty one gives the game's back.
-        self.do(*presses(DOWN, 5, 12), *press("A", 30))
+        self.do(*h.CHANGE_TRAINER)
         self.assertEqual(self.s.trainer_state().name, b"ASH")
         self.do(*press(DOWN), *press("A", 20), *presses("B", 3), *press("Start"), *press("A", 20), *press(DOWN),
                 *press("A", 40))

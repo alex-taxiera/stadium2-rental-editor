@@ -53,6 +53,8 @@ typedef struct EditState {
     /* 0x166 */ s16 scroll;       /* the scroll bar's knob, 0 to SCROLL_UNITS, gliding to where the list is */
     /* 0x168 */ f32 pointerTimer; /* where the hand in the move list is in its slide */
     /* 0x16C */ u8 nameMax;       /* how long the name being typed may get */
+    /* 0x16D */ u8 pending;       /* Edit POKeMON was chosen: the next of the team to be opened gets the editor at once */
+    /* 0x16E */ u8 direct;        /* the editor was opened that way, so B closes the panel under it too */
 } EditState; /* size = 0x170 */
 
 #define SCROLL_UNITS 256
@@ -71,7 +73,9 @@ EditState *Edit_GetState(void);
 /* edit.c */
 s32 Edit_CanEdit(DetailPanel *panel);
 s32 Edit_IsActive(DetailPanel *panel);
-void Edit_Open(DetailPanel *panel);
+void Edit_Open(DetailPanel *panel, s32 direct);
+void Edit_SetPending(s32 pending);
+void Edit_ClosePanel(DetailPanel *panel);
 void Edit_Update(DetailPanel *panel, Pad *pad);
 s32 Edit_MoveCount(Pokemon *mon);
 s32 Edit_SlotCount(Pokemon *mon);
