@@ -118,7 +118,24 @@ void func_842032AC(void) {
     }
 }
 
-#pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/80/fragment80_41AC50/func_84203360.s")
+void func_842017D0(u8);
+void func_842018A8(void);
+void func_84201F2C(u8);
+void func_84202020(u8);
+void func_84202B58(u8);
+void func_84202198(u8);
+void func_842032AC(void);
+void func_84203360(u8 arg0) {
+    if (((u8 *)D_84203B54)[arg0 * 0x4E0 + 0x49A] != 0) {
+        func_842017D0(arg0);
+        func_842018A8();
+        func_84201F2C(arg0);
+        func_84202020(arg0);
+        func_84202B58(arg0);
+        func_84202198(arg0);
+        func_842032AC();
+    }
+}
 
 #pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/80/fragment80_41AC50/func_842033EC.s")
 
