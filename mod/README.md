@@ -190,8 +190,11 @@ checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 - The original ROM still builds byte for byte from the same tree, and the patch applied
   to it reproduces the modified ROM.
 
-Not tested: real hardware, standalone ares, other emulators, the Stadium cups and Gym
-Leader Castle (they use the same entry screen), and the Japanese version.
+An earlier build has also been run on a real Nintendo 64. This build has not, so what it
+adds has only been through the emulator.
+
+Not tested: standalone ares, other emulators, the Stadium cups and Gym Leader Castle
+(they use the same entry screen), and the Japanese version.
 
 ## Checklist for real hardware
 
