@@ -137,7 +137,21 @@ void func_84203360(u8 arg0) {
     }
 }
 
-#pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/80/fragment80_41AC50/func_842033EC.s")
+extern void *D_84203B58;
+extern void func_80035700(u32);
+void func_842033EC(F842029A8Record *arg0, void *arg1) {
+    struct {
+        u32 count;
+        u32 reserved;
+    } state;
+    u32 value;
+
+    D_84203B54 = arg0;
+    D_84203B58 = arg1;
+    state.count = osGetCount();
+    value = guRandom() & state.count;
+    func_80035700(((value & 0xFFFF0000) >> 16) | ((value & 0xFFFF) << 16));
+}
 
 extern u8 D_842034D0;
 u8 func_84203440(void) {
