@@ -44,7 +44,9 @@ rental tab (**R**), press A on a rental, and choose **EDIT** under Yes / No / IT
 two-player battle each player edits in turn with their own controller.
 
 The editor covers the party box; the game's own panel underneath shows the Pokémon as it
-will be, with stats recalculated as you change things.
+will be, with stats recalculated as you change things. The field the cursor is on has the
+game's own brackets around it, which turn green while you are changing a number. The move
+list has a scroll bar, and a hand points at the move the cursor is on.
 
 | Where | Button | Does |
 |---|---|---|
@@ -110,7 +112,7 @@ A registered team keeps its edits.
 ## What has been tested
 
 Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts. Most of
-it is now an automated suite (`mod/tests/emu`, 25 scenarios) that plays the editor and
+it is now an automated suite (`mod/tests/emu`, 26 scenarios) that plays the editor and
 checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 
 - Moves, level, DVs and Stat Exp edited and carried into a battle.

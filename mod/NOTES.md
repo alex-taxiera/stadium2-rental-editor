@@ -74,6 +74,13 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
   - Checked: the list holds "No item" and the 42 in the game's order; Leftovers, eight
     rows down, was chosen for Abra and is in the party record. Names and descriptions
     draw, and the list scrolls, as it does in the stock game for a Game Pak's items.
+- **The stock cursors.** The editor borrows what the game's own lists and menus draw:
+  the brackets that breathe around the chosen entry mark the field the cursor is on
+  (gold, and green while a number is grabbed), and the move list has the scroll bar
+  down its left edge and the pointing hand of the ENTER menu. See "UI library pieces".
+  - Checked: the brackets around a move, the name, a DV and a Stat Exp value, clear of
+    the text at both ends of their cycle; the bar's knob at the top, part way and at the
+    bottom of Abra's 51 moves, and gliding there after a page.
 - Nothing has been run on standalone ares or hardware yet. BizHawk's Ares64 core is the
   same emulation core as standalone ares.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
@@ -392,6 +399,17 @@ UI library pieces used (fragment 11):
 | `func_816073A0(rect)` / `func_81607408()` | clip to a window's inside / to the full screen |
 | `Gfx_FillRectRgb(x, y, w, h, r, g, b)` | filled rectangle, after `gSPDisplayList(D_800D0510++, D_80094D90)` |
 | `func_80049148(font, 1, string)` | width of a string |
+| `func_81607440(x, y, w, h, position, …)` | vertical scroll bar: the trough (`func_816054D8`) and a 16 x 20 knob whose middle runs from `y + 13` to `y + h - 13` as `position` goes from 0 to 1. Clips to itself and leaves the clip at the full screen. The stock lists pass two more arguments, whether there is more above and below (`func_8160762C`), which it never reads |
+| `func_81608918(x, y, &timer)` | the pointing hand (`func_8004AF18`, main segment), sliding 6 pixels right and back every 24 frames; `timer` is an `f32` the caller keeps. About 32 pixels wide, drawn at the text's own y |
+| `func_8004B09C(x, y, w, h, &phase, r, g, b, animate)` | main segment: four corner brackets around a rectangle, moving in and out by 2 pixels on a sine. A corner is 16 x 15, so they stay apart from 30 pixels of height up. `phase` is a `u16` that each call moves on by 0x2000 when `animate` is set. `func_8004B314(x, y, w, h)` is the same in the stock gold (`F0 D4 68`) on a phase shared by every caller |
+
+The stock ITEM list (`func_81305C54`) is where these were read from: the bar at the
+window's inside left edge, 19 wide and as high as the inside; names at `x + 0x26 +
+172 * column`, `y + 0x12 + 28 * row`; and the brackets 157 x 36, starting 5 pixels up and
+left of the name. The editor's rows are 22 apart, too close for brackets that tall to miss
+the next row's text, so its brackets stand a corner's width out to either side of a field
+instead. The knob in the stock list eases towards its place, and the editor's does too
+(`EditState.scroll`, halving the distance each frame).
 
 The font has no `<` or `>` glyphs. The ENTER box's inside is `x + 0x198`, `y + 9`,
 129 x 128, colour `#3333F8`; the editor paints its key hints there.

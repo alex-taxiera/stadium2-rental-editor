@@ -136,9 +136,10 @@ class Record:
 class EditState:
     """The editor's state; see `EditState` in mod/include/edit.h."""
 
-    SIZE = 0x164
+    SIZE = 0x16C
     OFF, FIELDS, ADJUST, MOVE_LIST, NAME = range(5)
     COL_MOVES, COL_DV, COL_STAT_EXP = range(3)
+    SCROLL_UNITS = 256   # the scroll bar's knob at the bottom
 
     def __init__(self, data: bytes):
         self.mode, self.col, self.row = data[0], data[1], data[2]
@@ -148,6 +149,7 @@ class EditState:
         self.list = list(data[0x10:0x10 + max(self.count, 0)])
         self.key_col, self.key_row, self.name_length = data[0x10C], data[0x10D], data[0x10E]
         self.name = data[0x110:0x11B].split(b"\0")[0]
+        self.scroll, = struct.unpack_from(">h", data, 0x166)
 
 
 class Panel:

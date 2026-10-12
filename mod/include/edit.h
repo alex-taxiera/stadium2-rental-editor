@@ -48,7 +48,12 @@ typedef struct EditState {
     /* 0x10F */ u8 keysMeasured;
     /* 0x110 */ char name[MAX_NAME_LENGTH + 1]; /* as typed; written to the record on END */
     /* 0x11B */ u8 keyInset[NUM_PAGES][KEY_ROWS][KEY_COLS]; /* centres each key in its cell */
-} EditState; /* size = 0x164 */
+    /* 0x164 */ u16 bracketPhase; /* where the brackets around a field are in their cycle */
+    /* 0x166 */ s16 scroll;       /* the scroll bar's knob, 0 to SCROLL_UNITS, gliding to where the list is */
+    /* 0x168 */ f32 pointerTimer; /* where the hand in the move list is in its slide */
+} EditState; /* size = 0x16C */
+
+#define SCROLL_UNITS 256
 
 /* The editor window, drawn over the party box. The stock detail panel below it stays
  * visible and shows the Pokemon as it will be. */

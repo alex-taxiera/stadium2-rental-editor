@@ -232,6 +232,25 @@ char *func_816087C8(Pokemon *mon); /* the gender symbol as a string, empty when 
 #define WINDOW_INSET 8
 #define WINDOW_BORDER 19
 
+/* --- Cursors and the scroll bar, as the stock lists and menus draw them --- */
+
+/* Four corner brackets around a rectangle, breathing in and out by two pixels. `phase`
+ * is the caller's; one call moves it on an eighth of a cycle when `animate` is set. */
+s32 func_8004B09C(s32 x, s32 y, s32 width, s32 height, u16 *phase, u8 r, u8 g, u8 b, s32 animate);
+#define Brackets_Draw func_8004B09C
+#define BRACKET_CORNER 16 /* a corner is this wide, and a pixel less high */
+
+/* The pointing hand, sliding up to 6 pixels right and back. `timer` is the caller's. */
+void func_81608918(s32 x, s32 y, f32 *timer);
+#define Pointer_Draw func_81608918
+#define POINTER_WIDTH 38 /* the hand, plus how far it slides */
+
+/* A vertical scroll bar with its knob at `position`, 0 for the top to 1 for the bottom.
+ * The last two arguments are what the stock lists pass; the function ignores them. */
+void func_81607440(s32 x, s32 y, s32 width, s32 height, f32 position, s32 canScrollUp, s32 canScrollDown);
+#define ScrollBar_Draw func_81607440
+#define SCROLL_BAR_WIDTH 19
+
 /* --- Drawing (main segment) --- */
 
 extern Gfx *D_800D0510;

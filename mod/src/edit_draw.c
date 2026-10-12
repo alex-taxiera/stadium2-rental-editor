@@ -2,9 +2,9 @@
 
 /* Positions inside the editor window, relative to its top-left corner. Numbers are
  * right-aligned, so their X is where they end. */
-#define TITLE_Y 14
-#define HEADER_Y 38
-#define ROW_Y 60
+#define TITLE_Y 16
+#define HEADER_Y 40
+#define ROW_Y 62
 #define ROW_SPACING 22
 
 #define MOVE_X 26
@@ -19,8 +19,25 @@
 #define WORD_GAP 7
 #define NAME_X (MOVE_X + 60)
 
+/* The brackets around the field the cursor is on. Their corners stand clear of the text:
+ * a corner's width out to either side of it, and high enough that the upper and lower
+ * corners do not meet. A number's field is as wide as its longest value. */
+#define FIELD_MARGIN BRACKET_CORNER
+#define FIELD_RISE 7
+#define FIELD_HEIGHT 30
+#define DV_WIDTH 22
+#define STAT_EXP_WIDTH 48
+
+/* The move list, from the left: the scroll bar down the window's edge beside the rows,
+ * the hand, then the names. */
 #define LIST_ROW_Y 36
 #define LIST_ROW_SPACING 19
+#define LIST_BAR_X WINDOW_INSET
+#define LIST_BAR_Y 30
+#define LIST_BAR_HEIGHT (EDIT_WINDOW_HEIGHT - WINDOW_BORDER + WINDOW_INSET - LIST_BAR_Y)
+#define LIST_POINTER_X (LIST_BAR_X + SCROLL_BAR_WIDTH + 3)
+#define LIST_NAME_X (LIST_POINTER_X + POINTER_WIDTH + 4)
+#define LIST_COUNT_X (LIST_NAME_X + 118) /* where the cursor's place in the list ends */
 #define LIST_TYPE_X 236
 #define LIST_POWER_X 400
 #define LIST_ACCURACY_X 458
@@ -229,6 +246,54 @@ static void Edit_DrawFields(EditState *state, Pokemon *mon) {
     }
 }
 
+/* The cursor of the field menu: the brackets the stock lists use, around the field the
+ * cursor is on, gold as theirs are and green while its value is being changed. They go
+ * down before the text. */
+static void Edit_DrawFieldCursor(EditState *state, Pokemon *mon) {
+    s32 x = EDIT_WINDOW_X;
+    s32 y = EDIT_WINDOW_Y;
+    s32 width;
+
+    if (state->onName) {
+        x += NAME_X;
+        y += TITLE_Y;
+        width = Text_Width(MENU_FONT, 1, mon->nickname) + Text_Width(MENU_FONT, 1, Pokemon_GenderSymbol(mon));
+    } else {
+        y += ROW_Y + ROW_SPACING * state->row;
+        if (state->col == COL_MOVES) {
+            x += MOVE_X;
+            width = PP_X - MOVE_X;
+        } else if (state->col == COL_DV) {
+            x += DV_X - DV_WIDTH;
+            width = DV_WIDTH;
+        } else {
+            x += STAT_EXP_X - STAT_EXP_WIDTH;
+            width = STAT_EXP_WIDTH;
+        }
+    }
+    x -= FIELD_MARGIN;
+    width += 2 * FIELD_MARGIN;
+
+    if (state->mode == EDIT_ADJUST) {
+        Brackets_Draw(x, y - FIELD_RISE, width, FIELD_HEIGHT, &state->bracketPhase, 0x60, 0xFF, 0x60, TRUE);
+    } else {
+        Brackets_Draw(x, y - FIELD_RISE, width, FIELD_HEIGHT, &state->bracketPhase, 0xF0, 0xD4, 0x68, TRUE);
+    }
+}
+
+/* What the move list borrows from the stock lists and menus: a scroll bar, and the hand
+ * pointing at the row the cursor is on. They go down before the text. */
+static void Edit_DrawListCursor(EditState *state) {
+    s32 x = EDIT_WINDOW_X;
+    s32 y = EDIT_WINDOW_Y;
+
+    ScrollBar_Draw(x + LIST_BAR_X, y + LIST_BAR_Y, SCROLL_BAR_WIDTH, LIST_BAR_HEIGHT,
+                   (f32)state->scroll / SCROLL_UNITS, state->top > 0,
+                   state->top + EDIT_LIST_ROWS < state->count);
+    Pointer_Draw(x + LIST_POINTER_X, y + LIST_ROW_Y + LIST_ROW_SPACING * (state->cursor - state->top),
+                 &state->pointerTimer);
+}
+
 static void Edit_DrawMoveList(EditState *state, Pokemon *mon) {
     s32 x = EDIT_WINDOW_X;
     s32 y = EDIT_WINDOW_Y;
@@ -236,7 +301,7 @@ static void Edit_DrawMoveList(EditState *state, Pokemon *mon) {
     s32 row;
 
     Edit_Heading();
-    Text_Draw(x + MOVE_X, y + TITLE_Y, sPickMove);
+    Text_Draw(x + LIST_NAME_X, y + TITLE_Y, sPickMove);
     Text_Draw(x + LIST_TYPE_X, y + TITLE_Y, sType);
     Edit_DrawRight(x + LIST_POWER_X, y + TITLE_Y, sPower);
     Edit_DrawRight(x + LIST_ACCURACY_X, y + TITLE_Y, sAccuracy);
@@ -244,9 +309,9 @@ static void Edit_DrawMoveList(EditState *state, Pokemon *mon) {
 
     /* Position in the list, e.g. 12/45. */
     Edit_Grey();
-    Edit_DrawNumber(x + MOVE_X + 140, y + TITLE_Y, state->cursor + 1);
-    Text_Draw(x + MOVE_X + 142, y + TITLE_Y, sSlash);
-    Text_Draw(x + MOVE_X + 150, y + TITLE_Y, Edit_Digits(&buffer[11], state->count));
+    Edit_DrawNumber(x + LIST_COUNT_X, y + TITLE_Y, state->cursor + 1);
+    Text_Draw(x + LIST_COUNT_X + 2, y + TITLE_Y, sSlash);
+    Text_Draw(x + LIST_COUNT_X + 10, y + TITLE_Y, Edit_Digits(&buffer[11], state->count));
 
     for (row = 0; row < EDIT_LIST_ROWS && state->top + row < state->count; row++) {
         s32 index = state->top + row;
@@ -262,10 +327,10 @@ static void Edit_DrawMoveList(EditState *state, Pokemon *mon) {
         }
 
         if (move == EDIT_REMOVE) {
-            Text_Draw(x + MOVE_X, rowY, sRemove);
+            Text_Draw(x + LIST_NAME_X, rowY, sRemove);
             continue;
         }
-        Text_Draw(x + MOVE_X, rowY, Move_Name(move));
+        Text_Draw(x + LIST_NAME_X, rowY, Move_Name(move));
         Text_Draw(x + LIST_TYPE_X, rowY, Type_Name(Edit_MoveType(mon, move)));
         if (Edit_MovePower(mon, move) > 1) {
             Edit_DrawNumber(x + LIST_POWER_X, rowY, Edit_MovePower(mon, move));
@@ -384,6 +449,10 @@ void Edit_DrawWindow(DetailPanel *panel) {
     if (state->mode == EDIT_NAME) {
         gSPDisplayList(gDisplayListHead++, D_80094D90);
         Edit_DrawNameBoxes(state);
+    } else if (state->mode == EDIT_MOVE_LIST) {
+        Edit_DrawListCursor(state);
+    } else {
+        Edit_DrawFieldCursor(state, panel->pokemon);
     }
 
     gSPDisplayList(gDisplayListHead++, D_80094F50);
