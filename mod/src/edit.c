@@ -157,11 +157,43 @@ static s32 Edit_MaxLevel(void) {
     return level < MIN_LEVEL ? MIN_LEVEL : level;
 }
 
+/* Whether the team is past the rules' limit on its levels together. Only for a panel
+ * opened on one of the team: that is the picker's own, the first thing in its state. */
+static s32 Edit_TeamOverLevels(DetailPanel *panel) {
+    return Party_LowestLevelTotal((u8 *)panel + ENTRY_STATE_PARTY) > Edit_Rules()->maxLevelTotal;
+}
+
+/* Gives the Pokemon a level and returns the one it got. For one of the team that is the
+ * highest up to `level` that keeps the team within the limit, if it was within it: past
+ * the limit the game would have the team's last Pokemon chosen again, edits and all. */
+static s32 Edit_SetLevel(DetailPanel *panel, s32 level) {
+    Pokemon *mon = panel->pokemon;
+    s32 old = mon->level;
+    u32 oldExp = mon->exp;
+    s32 limited = panel->mode == PANEL_MODE_EXCHANGE && level > old && !Edit_TeamOverLevels(panel);
+
+    for (;;) {
+        mon->exp = Pokemon_ExpForLevel(mon->species, level);
+        Pokemon_RecalcStats(mon);
+        if (!limited || level == old || !Edit_TeamOverLevels(panel)) {
+            break;
+        }
+        level--;
+    }
+    if (level == old) {
+        mon->exp = oldExp;
+        Sound_Play(SOUND_ERROR);
+    }
+    return level;
+}
+
 s32 Edit_CanEdit(DetailPanel *panel) {
     Pokemon *mon = panel->pokemon;
 
-    return panel->mode == PANEL_MODE_ENTER && mon != NULL && (mon->flags & POKEMON_FLAG_RENTAL) &&
-           mon->species >= 1 && mon->species <= NUM_SPECIES;
+    /* A rental about to be entered, or one already on the team: the team's box holds
+     * cells like the list's, so the editor works on either where it is. */
+    return (panel->mode == PANEL_MODE_ENTER || panel->mode == PANEL_MODE_EXCHANGE) && mon != NULL &&
+           (mon->flags & POKEMON_FLAG_RENTAL) && mon->species >= 1 && mon->species <= NUM_SPECIES;
 }
 
 s32 Edit_IsActive(DetailPanel *panel) {
@@ -178,7 +210,7 @@ s32 Edit_IsActive(DetailPanel *panel) {
     return TRUE;
 }
 
-void Edit_Open(DetailPanel *panel) {
+void Edit_Open(DetailPanel *panel, s32 direct) {
     EditState *state = Edit_GetState();
 
     state->mode = EDIT_FIELDS;
@@ -188,6 +220,18 @@ void Edit_Open(DetailPanel *panel) {
     state->repeatTimer = 0;
     state->bracketPhase = 0;
     state->panel = panel;
+    state->direct = direct;
+}
+
+void Edit_SetPending(s32 pending) {
+    Edit_GetState()->pending = pending;
+}
+
+/* Closes the panel on No, as B does on its menu. */
+void Edit_ClosePanel(DetailPanel *panel) {
+    panel->cursor = ENTER_MENU_NO;
+    panel->state = PANEL_CLOSING;
+    panel->opening = 1.0f;
 }
 
 /* Stats follow from level, DVs and Stat Exp; the detail panel only repaints when asked. */
@@ -361,8 +405,16 @@ static void Edit_UpdateFields(EditState *state, Pad *pad, DetailPanel *panel) {
     if (buttons & BTN_B) {
         Sound_Play(SOUND_CANCEL);
         state->mode = EDIT_OFF;
-        /* Back on the stock menu, ready to confirm with Yes if that is allowed. */
-        panel->cursor = EnterMenu_YesDisabled(panel) ? 1 : 0;
+        if (state->direct) {
+            /* There was no menu before the editor, so none after: back to the team. */
+            Edit_ClosePanel(panel);
+        } else if (panel->mode == PANEL_MODE_EXCHANGE) {
+            /* Yes here would give the Pokemon up for another. */
+            panel->cursor = ENTER_MENU_NO;
+        } else {
+            /* Back on the stock menu, ready to confirm with Yes if that is allowed. */
+            panel->cursor = EnterMenu_YesDisabled(panel) ? ENTER_MENU_NO : 0;
+        }
         return;
     }
     if (buttons & BTN_A) {
@@ -455,7 +507,7 @@ static void Edit_AdjustField(EditState *state, DetailPanel *panel, s32 steps, s3
             value = toEnd < 0 ? Edit_MinLevel() : Edit_MaxLevel();
         }
         if (value != old) {
-            mon->exp = Pokemon_ExpForLevel(mon->species, value);
+            value = Edit_SetLevel(panel, value);
         }
     }
 

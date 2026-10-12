@@ -49,15 +49,28 @@ void Mod_DrawEnterMenu(DetailPanel *panel, void *ctx) {
  */
 void Mod_EnterMenuInput(DetailPanel *panel) {
     Pad *pad = &gPads[panel->controller];
+    EditState *state = Edit_GetState();
     s32 editRow;
 
     if (Edit_IsActive(panel)) {
         Edit_Update(panel, pad);
+    } else if (state->pending && panel->mode == PANEL_MODE_EXCHANGE) {
+        /* Edit POKeMON: this is the one of the team it was chosen for, so the editor
+         * opens in place of the EXCHANGE menu. Only a rental has one. */
+        if (!Edit_CanEdit(panel)) {
+            Sound_Play(SOUND_ERROR);
+            Edit_ClosePanel(panel);
+            return;
+        }
+        Edit_Open(panel, TRUE);
     } else {
+        /* The stock menu, with EDIT on it. If Edit POKeMON was waiting, a panel of this
+         * other kind means the team's box has been left, so it waits no more. */
+        state->pending = FALSE;
         editRow = Edit_CanEdit(panel) ? EnterMenu_StockCount(panel) : -1;
         if (editRow >= 0 && panel->cursor == editRow && (pad->pressed & BTN_A)) {
             Sound_Play(SOUND_CONFIRM);
-            Edit_Open(panel);
+            Edit_Open(panel, FALSE);
         } else if (editRow >= 0 && panel->cursor == editRow - 1 && (pad->pressed & BTN_DDOWN) &&
                    !(pad->pressed & (BTN_A | BTN_B | BTN_DUP))) {
             Sound_Play(SOUND_CURSOR);
