@@ -178,6 +178,7 @@ void Edit_Open(DetailPanel *panel) {
     state->row = 0;
     state->onName = FALSE;
     state->repeatTimer = 0;
+    state->bracketPhase = 0;
     state->panel = panel;
 }
 
@@ -238,6 +239,20 @@ static s32 Edit_MoveField(EditState *state, Pokemon *mon, s32 colStep, s32 rowSt
     return TRUE;
 }
 
+/* Where the scroll bar's knob belongs for the rows now showing. */
+static s32 Edit_ScrollTarget(EditState *state) {
+    s32 range = state->count - EDIT_LIST_ROWS;
+
+    return range > 0 ? state->top * SCROLL_UNITS / range : 0;
+}
+
+/* The knob does not jump with the list: each frame it covers half of what is left. */
+static void Edit_GlideScroll(EditState *state) {
+    s32 left = Edit_ScrollTarget(state) - state->scroll;
+
+    state->scroll += left / 2 != 0 ? left / 2 : left;
+}
+
 /* Fills the list with every move the species may know, in alphabetical order.
  * The first entry removes the move when the Pokemon would still have one left. */
 static void Edit_BuildList(EditState *state, Pokemon *mon) {
@@ -267,6 +282,8 @@ static void Edit_BuildList(EditState *state, Pokemon *mon) {
     if (state->top < 0) {
         state->top = 0;
     }
+    state->scroll = Edit_ScrollTarget(state);
+    state->pointerTimer = 0.0f;
 }
 
 static void Edit_RemoveMove(Pokemon *mon, s32 slot) {
@@ -452,6 +469,7 @@ static void Edit_UpdateList(EditState *state, Pad *pad, DetailPanel *panel) {
     s32 slot = state->row;
     s32 move;
 
+    Edit_GlideScroll(state);
     if (pad->pressed & BTN_B) {
         Sound_Play(SOUND_CANCEL);
         state->mode = EDIT_FIELDS;
