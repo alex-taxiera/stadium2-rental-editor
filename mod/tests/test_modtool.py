@@ -1,5 +1,6 @@
 """Hook thunks and injection. Run: python3 -m unittest discover mod/tests"""
 
+import shutil
 import struct
 import sys
 import tempfile
@@ -75,6 +76,12 @@ class HooksFileTest(unittest.TestCase):
     def test_malformed_line_is_rejected(self):
         with self.assertRaises(ValueError):
             modtool.read_hooks(self.write("boot func_A\n"))
+        with self.assertRaises(ValueError):
+            modtool.read_hooks(self.write("boot a b\nreplace func_B Mod_B\n"))
+
+    def test_a_detour_is_a_hook_like_any_other(self):
+        hooks = modtool.read_hooks(self.write("boot a b\ndetour func_C orig_func_C\n"))
+        self.assertEqual((hooks[1]["kind"], hooks[1]["slot"]), ("detour", 1))
 
     def test_the_real_hooks_file_parses(self):
         hooks = modtool.read_hooks(REPO_ROOT / "mod" / "hooks.txt")
@@ -132,7 +139,43 @@ class AsmPatchTest(unittest.TestCase):
         self.assertLessEqual(set(patches), hooked)
 
 
+class GeneratedAsmTest(unittest.TestCase):
+    FUNCTION = """glabel func_80000400
+    /* 000400 80000400 27BDFFE8 */  addiu       $sp, $sp, -0x18
+    /* 000404 80000404 03E00008 */  jr          $ra
+    /* 000408 80000408 27BD0018 */   addiu      $sp, $sp, 0x18
+"""
+    HOOKS = [{"kind": "boot", "function": "func_80000400", "target": "orig_func_80000400", "slot": 0}]
+
+    def generate(self, stock_patches):
+        directory = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, directory)
+        functions = directory / "asm" / "nonmatchings"
+        functions.mkdir(parents=True)
+        for name in ("func_80000400", "func_80000500"):
+            (functions / f"{name}.s").write_text(self.FUNCTION.replace("func_80000400", name))
+        modtool.write_asm(self.HOOKS, directory / "asm", directory / "out", {}, stock_patches)
+        return directory / "out"
+
+    def test_a_stock_patch_is_assembled_apart_from_the_mod(self):
+        out = self.generate({"func_80000500": [(0x80000408, "addiu $sp, $sp, 0x20")]})
+        patched = (out / "patched.s").read_text()
+        self.assertIn("glabel patched_func_80000500", patched)
+        self.assertIn("/* 000408 80000408 27BD0018 */   addiu $sp, $sp, 0x20", patched)
+        self.assertNotIn("func_80000500", (out / "moved.s").read_text())
+        self.assertNotIn("func_80000500", (out / "entry.s").read_text())
+
+    def test_no_stock_patches_still_writes_the_file(self):
+        self.assertNotIn("glabel", (self.generate({}) / "patched.s").read_text())
+
+    def test_a_hooked_function_cannot_be_patched_in_place(self):
+        with self.assertRaises(ValueError):
+            self.generate({"func_80000400": [(0x80000408, "nop")]})
+
+
 MOD_ROM = REPO_ROOT / "build" / "pokestadiumgs-us-mod.z64"
+PATCHED_OBJ = REPO_ROOT / "build" / "mod" / "patched.o"
+ASM_DIR = REPO_ROOT / "asm" / "us"
 STOCK_ROM = REPO_ROOT / "build" / "pokestadiumgs-us.z64"
 GAME_ELF = REPO_ROOT / "build" / "pokestadiumgs-us.elf"
 
@@ -160,12 +203,65 @@ class InjectedRomTest(unittest.TestCase):
         self.assertEqual(table[0], fr.R_MIPS_26 << 24)   # the header's own jump
         self.assertEqual(fr.order_errors(image, table), [])
 
+    def stock_patch_offsets(self):
+        """Where in the ROM each instruction of mod/stock_patches.txt is."""
+        offsets = []
+        for patches in modtool.read_patches(REPO_ROOT / "mod" / "stock_patches.txt").values():
+            for address, _ in patches:
+                number, section = modtool.stock_fragment(self.elf, address)
+                offsets.append(self.elf.symbol(f"fragment{number}_ROM_START") + address - section.addr)
+        return offsets
+
     def test_only_hooked_code_the_table_and_the_checksum_changed(self):
         start = self.elf.symbol(f"fragment{modtool.STOCK_FRAGMENT}_ROM_START")
         end = self.elf.symbol(f"fragment{modtool.STOCK_FRAGMENT + 1}_ROM_START")
-        # Everything outside the header checksum, fragment 14 and the hole is untouched.
-        for lo, hi in ((0, 0x10), (0x18, start), (end, modtool.HOLE_START), (modtool.HOLE_END, len(self.rom))):
-            self.assertEqual(self.rom[lo:hi], self.stock[lo:hi], f"unexpected change in {lo:#x}-{hi:#x}")
+        # Take back the instructions patched in place; then everything outside the header
+        # checksum, fragment 14 and the hole is untouched.
+        rom = bytearray(self.rom)
+        for at in self.stock_patch_offsets():
+            self.assertFalse(start <= at < end or modtool.HOLE_START <= at < modtool.HOLE_END)
+            rom[at:at + 4] = self.stock[at:at + 4]
+        for lo, hi in ((0, 0x10), (0x18, start), (end, modtool.HOLE_START), (modtool.HOLE_END, len(rom))):
+            self.assertEqual(rom[lo:hi], self.stock[lo:hi], f"unexpected change in {lo:#x}-{hi:#x}")
+
+    def test_every_stock_patch_changed_its_instruction(self):
+        offsets = self.stock_patch_offsets()
+        self.assertTrue(offsets)
+        for at in offsets:
+            self.assertNotEqual(self.rom[at:at + 4], self.stock[at:at + 4], f"{at:#x}")
+
+    def test_stock_patches_leave_their_fragments_table_alone(self):
+        for patches in modtool.read_patches(REPO_ROOT / "mod" / "stock_patches.txt").values():
+            number, section = modtool.stock_fragment(self.elf, patches[0][0])
+            start = self.elf.symbol(f"fragment{number}_ROM_START")
+            header = fr.read_header(self.rom, start)
+            self.assertEqual(header, fr.read_header(self.stock, start))
+            table = fr.read_table(self.rom, header)
+            self.assertEqual(table, fr.read_table(self.stock, header))
+            relocated = {entry & fr.OFFSET_MASK for entry in table}
+            for address, _ in patches:
+                self.assertNotIn(address - section.addr, relocated)
+
+    @unittest.skipUnless(PATCHED_OBJ.exists() and ASM_DIR.exists(), "no patched.o or extracted assembly")
+    def test_a_relocated_instruction_cannot_be_patched_in_place(self):
+        patched = fr.Elf(PATCHED_OBJ)
+        every = modtool.read_patches(REPO_ROOT / "mod" / "stock_patches.txt")
+        name, patches = next(iter(every.items()))
+        number, section = modtool.stock_fragment(self.elf, patches[0][0])
+        start = self.elf.symbol(f"fragment{number}_ROM_START")
+        table = fr.read_table(self.stock, fr.read_header(self.stock, start))
+        first, size = modtool.function_extent(modtool.find_function_asm(ASM_DIR, name))
+        relocated = next(section.addr + (entry & fr.OFFSET_MASK) for entry in table
+                         if first <= section.addr + (entry & fr.OFFSET_MASK) < first + size)
+        rom = bytearray(self.stock)
+        with self.assertRaises(ValueError):
+            modtool.apply_stock_patches(rom, self.elf, patched, {name: [(relocated, "nop")]}, ASM_DIR)
+        self.assertEqual(rom, self.stock)
+        # The real ones go through, and give what the build gave.
+        self.assertEqual(modtool.apply_stock_patches(rom, self.elf, patched, every, ASM_DIR),
+                         sum(len(patches) for patches in every.values()))
+        for at in self.stock_patch_offsets():
+            self.assertEqual(rom[at:at + 4], self.rom[at:at + 4])
 
     def test_stock_fragment_table_still_passes_the_order_check(self):
         start = self.elf.symbol(f"fragment{modtool.STOCK_FRAGMENT}_ROM_START")
@@ -185,6 +281,21 @@ class InjectedRomTest(unittest.TestCase):
             (first,) = struct.unpack_from(">I", self.rom, at)
             expected = 0x27BDFFD8 if hook["kind"] == "boot" else 0x3C19800D
             self.assertEqual(first, expected, hook["function"])
+
+    @unittest.skipUnless(ASM_DIR.exists(), "no extracted assembly")
+    def test_only_a_detour_keeps_the_rest_of_its_function(self):
+        start = self.elf.symbol(f"fragment{modtool.STOCK_FRAGMENT}_ROM_START")
+        vram = self.elf.by_name[f".fragment{modtool.STOCK_FRAGMENT}"].addr
+        hooks = modtool.read_hooks(REPO_ROOT / "mod" / "hooks.txt")
+        self.assertIn("detour", {hook["kind"] for hook in hooks})
+        for hook in hooks:
+            address, size = modtool.function_extent(modtool.find_function_asm(ASM_DIR, hook["function"]))
+            thunk = 4 * (20 if hook["kind"] == "boot" else 5)
+            rest = slice(start + address - vram + thunk, start + address - vram + size)
+            if hook["kind"] == "detour":
+                self.assertEqual(self.rom[rest], self.stock[rest], hook["function"])
+            else:
+                self.assertEqual(self.rom[rest].count(0), size - thunk, hook["function"])
 
 
 if __name__ == "__main__":

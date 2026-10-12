@@ -40,6 +40,13 @@ class WithoutExpansionPakTest(h.EmulatorTest):
         self.assertEqual(record.dvs, 0xAAAA)
         self.assertEqual(record.nickname, b"ABRAA")
         self.assertStatsFollow(record)
+        # Then out of the editor, the Pokemon entered, and a trainer picture and a title
+        # read from the ROM.
+        self.do(*press("B", 30), *press("A", 90), *press("Start", 60), *presses(DOWN, 5, 12), *press("A", 30),
+                *presses(RIGHT, 3), *press(UP), *press(h.LEFT))
+        self.assertEqual(self.s.trainer_state().title_text, b"RIVAL")
+        self.do(*press("A", 40))
+        self.assertEqual(self.s.trainer_choices(), [3, 0, 0, 0])
         self.assertEqual(int(float(self.s.run(UNWATCH)[0])), free)
         self.assertEqual(self.s.u32(h.POOL_FREE), free)
 

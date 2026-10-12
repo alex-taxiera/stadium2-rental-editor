@@ -9,21 +9,25 @@ s32 Edit_NameKey(s32 page, s32 row, s32 col) {
 }
 
 /* The keyboard starts with the name as it is, so it can be added to or cut back. */
-void Edit_OpenName(EditState *state, DetailPanel *panel) {
-    char *name = panel->pokemon->nickname;
+void Edit_OpenKeyboard(EditState *state, char *name, s32 maxLength) {
     s32 length = 0;
 
-    while (length < MAX_NAME_LENGTH && name[length] != '\0') {
+    while (length < maxLength && name[length] != '\0') {
         state->name[length] = name[length];
         length++;
     }
     state->name[length] = '\0';
     state->nameLength = length;
+    state->nameMax = maxLength;
     state->keyPage = PAGE_UPPER;
     state->keyRow = 0;
     state->keyCol = 0;
     state->keysMeasured = FALSE;
     state->repeatTimer = 0;
+}
+
+void Edit_OpenName(EditState *state, DetailPanel *panel) {
+    Edit_OpenKeyboard(state, panel->pokemon->nickname, MAX_NAME_LENGTH);
     state->mode = EDIT_NAME;
 }
 
@@ -55,7 +59,7 @@ static void Edit_JumpToEnd(EditState *state) {
 }
 
 static void Edit_TypeKey(EditState *state, s32 key) {
-    if (state->nameLength >= MAX_NAME_LENGTH) {
+    if (state->nameLength >= state->nameMax) {
         Sound_Play(SOUND_ERROR);
         return;
     }
@@ -63,7 +67,7 @@ static void Edit_TypeKey(EditState *state, s32 key) {
     state->name[state->nameLength] = '\0';
     Sound_Play(SOUND_CONFIRM);
     /* A full name leaves nothing to do but finish, as on the Game Boy. */
-    if (state->nameLength == MAX_NAME_LENGTH) {
+    if (state->nameLength == state->nameMax) {
         Edit_JumpToEnd(state);
     }
 }
@@ -96,8 +100,8 @@ static void Edit_CommitName(EditState *state, DetailPanel *panel) {
     }
 }
 
-void Edit_UpdateName(EditState *state, Pad *pad, DetailPanel *panel) {
-    s32 buttons = Edit_RepeatedButtons(state, pad, KEY_REPEAT);
+s32 Edit_UpdateKeyboard(EditState *state, Pad *pad) {
+    s32 buttons = Edit_RepeatedButtons(&state->repeatTimer, pad, KEY_REPEAT);
     s32 pressed = pad->pressed;
 
     if (pressed & BTN_A) {
@@ -108,18 +112,16 @@ void Edit_UpdateName(EditState *state, Pad *pad, DetailPanel *panel) {
         } else if (state->keyCol / WIDE_KEY_SPAN == KEY_DELETE) {
             Edit_DeleteKey(state);
         } else {
-            Edit_CommitName(state, panel);
             Sound_Play(SOUND_CONFIRM);
-            state->mode = EDIT_FIELDS;
+            return KEYBOARD_DONE;
         }
     } else if (pressed & BTN_B) {
         /* With nothing left to delete, B backs out and the name stays as it was. */
         if (state->nameLength == 0) {
             Sound_Play(SOUND_CANCEL);
-            state->mode = EDIT_FIELDS;
-        } else {
-            Edit_DeleteKey(state);
+            return KEYBOARD_CANCELLED;
         }
+        Edit_DeleteKey(state);
     } else if (pressed & (BTN_L | BTN_R)) {
         Edit_SwitchPage(state);
     } else if (pressed & BTN_START) {
@@ -133,5 +135,17 @@ void Edit_UpdateName(EditState *state, Pad *pad, DetailPanel *panel) {
         Edit_MoveKey(state, -1, 0);
     } else if (buttons & BTN_DRIGHT) {
         Edit_MoveKey(state, 1, 0);
+    }
+    return KEYBOARD_TYPING;
+}
+
+void Edit_UpdateName(EditState *state, Pad *pad, DetailPanel *panel) {
+    s32 status = Edit_UpdateKeyboard(state, pad);
+
+    if (status == KEYBOARD_DONE) {
+        Edit_CommitName(state, panel);
+    }
+    if (status != KEYBOARD_TYPING) {
+        state->mode = EDIT_FIELDS;
     }
 }

@@ -40,6 +40,8 @@ FRAGMENT_MAP = 0x800CC630      # D_800CC630: {base, size} for each fragment id
 MOD_VRAM = 0x85000000
 PICKER_VRAM = 0x81300000       # fragment 14, the entry screen and rental picker
 PICKER_STATE = 0x81317800      # D_81317800
+INTRO_VRAM = 0x82600000        # fragment 20: the opponent's introduction, and the result after a battle
+INTRO_STATE = 0x8261A490       # D_8261A490: its mode (0 before a battle, 1 after), and at +0xC8 each side's picture
 PARTY_CELL = 0x15390           # in the picker's state: the first Pokemon entered
 BATTLE_RECORD = 0x800D1C60     # player 1's first Pokemon during a battle
 POOL_FREE = 0x800CCDCC         # bytes free in the main pool
@@ -48,6 +50,20 @@ MAIN_ROM, MAIN_VRAM = 0x1000, 0x80000400   # where the main segment sits in the 
 
 BASE_STATS = 0x8009830B        # per species, 22 bytes: HP, Attack, Defense, Speed, Sp. Atk, Sp. Def at +0
 MOVE_PP = 0x8009782E           # per move, 6 bytes: base PP at +0
+
+PICKER_MENU = 0x74             # in the picker's state: the popup menu
+SESSION = 0x8009DF70           # D_8009DF70: what a battle and the screens before it share
+SESSION_INTRO, INTRO_PICTURES = 0x2C, 0x80   # in it, and in what that points to: each side's picture
+TRAINER_CHOICES = 0x80000358   # gTrainerChoices: a byte per controller port
+TRAINER_TITLES = 0x80000354    # gTrainerTitles: a byte per port, the title's number XOR the player's own
+TRAINER_NAMES = 0x80000334     # gTrainerNames: eight bytes per port
+PLAYER_TITLE = 0x29            # POKeMON TRAINER
+INTRO_NAMES = 0x8D0            # in what the session's SESSION_INTRO points to: twelve bytes a side
+PICKER_PARTY_NAME = 0x15370 + 0x11   # in the picker's state: the name of the team being chosen
+PICTURES_ROM = 0x02268000      # the archive of trainer pictures
+NUM_PICTURES = 67
+PICTURE_BYTES = 0x2008
+DEFAULT_PICTURE = (0x40, 1)    # what the game gives a human: trainer, expression
 
 RECORD_SIZE = 0x58
 CELL_ICON, ICON_SIZE = 0x60, 0xC88   # a list cell is a record followed by, among other things, its icon
@@ -72,6 +88,18 @@ def base_stats(species: int) -> list:
 
 def base_pp(move: int) -> int:
     return rom_bytes(MOVE_PP + move * 6, 1)[0]
+
+
+def trainer_picture(trainer: int, expression: int) -> bytes:
+    """A trainer picture as the game holds it, header and pixels, from the original ROM."""
+    with BASE_ROM.open("rb") as f:
+        f.seek(PICTURES_ROM + 0x10 + trainer * 0x10)
+        entry = PICTURES_ROM + struct.unpack(">I", f.read(4))[0]
+        f.seek(entry)
+        count, = struct.unpack(">I", f.read(4))
+        offsets = struct.unpack(f">{count}I", f.read(4 * count))
+        f.seek(entry + offsets[expression] - 8)
+        return f.read(PICTURE_BYTES)
 
 
 def stat_exp_term(stat_exp: int) -> int:
@@ -167,6 +195,37 @@ class Panel:
         self.model, self.pokemon, self.model_timer = struct.unpack_from(">IIi", data, 0x68)
 
 
+class Menu:
+    """A popup menu and how many entries its definition has; see `Menu` in mod/include/game.h."""
+
+    SIZE = 0x20
+    CLOSED, OPEN = 0, 2
+
+    def __init__(self, data: bytes, count: int):
+        self.definition, = struct.unpack_from(">I", data, 0)
+        self.x, self.y, self.width, self.height = struct.unpack_from(">4h", data, 0x10)
+        self.status, self.controller = data[0x18], data[0x1A]
+        self.cursor, = struct.unpack_from(">b", data, 0x19)
+        self.count = count
+
+
+class TrainerState:
+    """The trainer window's state; see `TrainerState` in mod/include/trainer.h. `rest` is
+    what follows the picture."""
+
+    SIZE = 0x14
+    PICTURE = 0x88
+    REST, REST_SIZE = 0x2090, 0x30
+    ROW_PICTURE, ROW_NAME, ROW_TITLE = range(3)
+
+    def __init__(self, data: bytes, rest: bytes):
+        self.open, self.controller, self.port, self.choice = data[0], data[1], data[2], data[3]
+        self.row = data[5]
+        self.typing, self.title = rest[0], rest[1]
+        self.name = rest[4:12].split(b"\0")[0]
+        self.title_text = rest[0x10 + rest[3]:].split(b"\0")[0]
+
+
 class ItemList:
     """The ENTER menu's ITEM list: "No item" alone on the top row, then two items a row.
     The cursor is on entry (top + row) * 2 + column - 1."""
@@ -218,6 +277,11 @@ SCENES = {
            + ["player 2"] + RENTAL_ONLY + ["player 1"],
 }
 
+# In the picker: enter the first rental, then Start for the menu a chosen team gets.
+TEAM_MENU = press("A", 60) + press("A", 90) + press("Start", 60)
+# From there: Change Trainer, the entry after the stock five.
+OPEN_TRAINER = TEAM_MENU + presses(DOWN, 5, 12) + press("A", 30)
+
 # In the picker: open the first rental (Abra) and choose EDIT.
 OPEN_PANEL = press("A", 60)
 OPEN_EDITOR = OPEN_PANEL + presses(DOWN, 3) + press("A", 30)
@@ -242,6 +306,7 @@ class Session:
         header = fr.read_header(rom.read_bytes(), HOLE_START)
         self.mod_size = header.size_in_ram
         self.state_offset = fr.Elf(MOD_ELF).symbol("gEditState") - MOD_VRAM
+        self.trainer_offset = fr.Elf(MOD_ELF).symbol("gTrainerState") - MOD_VRAM
 
     def run(self, *commands: str, timeout: float = 300) -> list:
         output = self.emulator.run(*commands, timeout=timeout)
@@ -300,6 +365,65 @@ class Session:
         """A Pokemon entered in the picker."""
         base, _ = self.fragment(PICKER_VRAM)
         return Record(self.read(base + PICKER_STATE - PICKER_VRAM + PARTY_CELL + index * 0xCE8, RECORD_SIZE))
+
+    def team_menu(self) -> Menu:
+        """The picker's popup menu."""
+        base, _ = self.fragment(PICKER_VRAM)
+        data = self.read(base + PICKER_STATE - PICKER_VRAM + PICKER_MENU, Menu.SIZE)
+        definition, = struct.unpack_from(">I", data, 0)
+        count = struct.unpack(">H", self.read(definition + 0x1C, 2))[0] if definition else 0
+        return Menu(data, count)
+
+    def trainer_state(self) -> TrainerState:
+        base, _ = self.fragment(MOD_VRAM)
+        if base == 0:
+            raise AssertionError("the mod is not loaded")
+        state = base + self.trainer_offset
+        return TrainerState(self.read(state, TrainerState.SIZE),
+                            self.read(state + TrainerState.REST, TrainerState.REST_SIZE))
+
+    def trainer_picture(self) -> bytes:
+        """The picture the window has loaded."""
+        base, _ = self.fragment(MOD_VRAM)
+        return self.read(base + self.trainer_offset + TrainerState.PICTURE, PICTURE_BYTES)
+
+    def trainer_choices(self) -> list:
+        return list(self.read(TRAINER_CHOICES, 4))
+
+    def trainer_titles(self) -> list:
+        """Each port's title, as its number in the game's bank."""
+        return [byte ^ PLAYER_TITLE for byte in self.read(TRAINER_TITLES, 4)]
+
+    def trainer_names(self) -> list:
+        data = self.read(TRAINER_NAMES, 32)
+        return [data[i:i + 8].split(b"\0")[0] for i in range(0, 32, 8)]
+
+    def party_name(self) -> bytes:
+        """The name of the team being chosen in the picker."""
+        base, _ = self.fragment(PICKER_VRAM)
+        return self.read(base + PICKER_STATE - PICKER_VRAM + PICKER_PARTY_NAME, 12).split(b"\0")[0]
+
+    def battle_names(self) -> list:
+        """The first two sides' names, as the screens before and after a battle show them."""
+        intro, = struct.unpack(">I", self.read(self.u32(SESSION) + SESSION_INTRO, 4))
+        data = self.read(intro + INTRO_NAMES, 24)
+        return [data[:12].split(b"\0")[0], data[12:].split(b"\0")[0]]
+
+    def intro(self) -> tuple:
+        """(mode, [each side's picture as loaded]) of the introduction or result screen."""
+        base, _ = self.fragment(INTRO_VRAM)
+        if base == 0:
+            raise AssertionError("the introduction is not on screen")
+        state = base + INTRO_STATE - INTRO_VRAM
+        mode, = struct.unpack(">h", self.read(state, 2))
+        pointers = struct.unpack(">2I", self.read(state + 0xC8, 8))
+        return mode, [self.read(pointer, PICTURE_BYTES) if pointer else None for pointer in pointers]
+
+    def battle_pictures(self) -> list:
+        """(trainer, expression) for each side of the battle being set up."""
+        intro, = struct.unpack(">I", self.read(self.u32(SESSION) + SESSION_INTRO, 4))
+        values = struct.unpack(">4h", self.read(intro + INTRO_PICTURES, 8))
+        return [values[:2], values[2:]]
 
     def shot(self, name: str) -> Path:
         """A screenshot at normal speed, so the picture is of the frame just emulated."""
