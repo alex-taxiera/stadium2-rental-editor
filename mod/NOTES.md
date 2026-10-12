@@ -133,8 +133,10 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
     allowed.
   - Not tried: a team with a Game Pak's Pokémon on it, where Edit POKéMON should sound
     the error and stay in the box.
-- Nothing has been run on standalone ares or hardware yet. BizHawk's Ares64 core is the
-  same emulation core as standalone ares.
+- An earlier build has been run on a real Nintendo 64 (reported 2026-10-12; which build,
+  the cart and whether an Expansion Pak was fitted are not recorded here). The build with
+  the editor on one of the team has not. Nothing has been run on standalone ares;
+  BizHawk's Ares64 core is the same emulation core.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
   before entering it loses the edit. An edit made on the team lives in the team's cell
   only: exchanged away and chosen again, the Pokémon is the list's copy. The stock detail

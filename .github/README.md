@@ -57,7 +57,8 @@ off.
 It works in Free Battle and when registering a team, for either player, with or without
 an Expansion Pak, and a registered team keeps its edits. The save format is untouched.
 
-So far it has been tested in BizHawk with its Ares64 core only, not on a console.
+An earlier build has been run on a real Nintendo 64. The current release has been tested
+in BizHawk with its Ares64 core only.
 
 ## This repository
 
