@@ -122,7 +122,7 @@ class Record:
         self.stat_exp = list(struct.unpack_from(">5H", d, 0x0C))
         self.dvs, = struct.unpack_from(">H", d, 0x16)
         self.pp = list(d[0x18:0x1C])
-        self.level, self.flags = d[0x1D], d[0x1E]
+        self.happiness, self.level, self.flags = d[0x1C], d[0x1D], d[0x1E]
         self.hp, = struct.unpack_from(">H", d, 0x26)
         self.stats = list(struct.unpack_from(">6H", d, 0x28))
         self.nickname = d[0x34:0x40].split(b"\0")[0]
@@ -138,7 +138,7 @@ class EditState:
 
     SIZE = 0x16C
     OFF, FIELDS, ADJUST, MOVE_LIST, NAME = range(5)
-    COL_MOVES, COL_DV, COL_STAT_EXP = range(3)
+    COL_MOVES, COL_HAPPINESS, COL_DV, COL_STAT_EXP = range(4)
     SCROLL_UNITS = 256   # the scroll bar's knob at the bottom
 
     def __init__(self, data: bytes):
