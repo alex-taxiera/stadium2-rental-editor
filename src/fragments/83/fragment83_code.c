@@ -773,7 +773,40 @@ void func_82C04778(void) {
 #endif
 
 #ifdef VERSION_US
-#pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/83/fragment83_code/func_82C047C4.s")
+extern void func_8004C09C(s32);
+extern void func_82C04350(void);
+extern void func_82C0458C(void);
+extern void func_82C03524(void);
+extern void func_82C03574(void);
+extern void func_82C0423C(void);
+extern void func_82C04778(void);
+extern u8 D_82C04A14;
+extern u8 D_82C04C38;
+extern s16 D_82C04C44;
+s32 func_82C047C4(s32 arg0, s32 arg1) {
+    typedef struct { u8 bytes[8]; } Blob;
+    typedef struct { u8 a, b, c, d, e, pad; s16 f, g; u8 h; u8 pad2[9]; s32 i, j; } State;
+    State *state;
+    extern Blob D_82C04908;
+    func_8004C09C(0xB);
+    func_82C03524();
+    func_82C03574();
+    state = (State *)&D_82C04C38;
+    state->a = 0;
+    state->b = 0;
+    state->c = 0;
+    state->e = 0xFF;
+    state->h = D_82C04A14;
+    *(Blob *)&D_82C04C44 = D_82C04908;
+    state->f = 0;
+    state->g = 0;
+    state->i = arg0;
+    state->j = arg1;
+    func_82C04350();
+    func_82C0423C();
+    func_82C0458C();
+    func_82C04778();
+}
 #endif
 
 #ifdef VERSION_US
