@@ -58,7 +58,30 @@ void func_84202744(F84202744State *arg0) {
 
 #pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/80/fragment80_41AC50/func_84202798.s")
 
-#pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/80/fragment80_41AC50/func_842029A8.s")
+typedef struct F842029A8State {
+    u8 active;
+    u8 pad01[4];
+    u8 selected;
+    u8 count;
+    u8 indices[6];
+} F842029A8State;
+typedef struct F842029A8Record {
+    u8 pad00[8];
+    u8 count;
+    u8 pad09[0x4D7];
+} F842029A8Record;
+extern F842029A8State D_84203AD0;
+extern F842029A8Record *D_84203B54;
+void func_842029A8(u8 arg0) {
+    s32 i;
+
+    D_84203AD0.selected = arg0;
+    D_84203AD0.count = D_84203B54[arg0].count;
+    for (i = 0; i < D_84203AD0.count; i++) {
+        D_84203AD0.indices[i] = i;
+    }
+    D_84203AD0.active = 1;
+}
 
 #pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/80/fragment80_41AC50/func_84202A20.s")
 
