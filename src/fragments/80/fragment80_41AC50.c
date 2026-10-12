@@ -97,7 +97,26 @@ void func_84202FE4(void *arg0) { func_84202BD0(arg0); func_84202EE4(arg0); }
 
 #pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/80/fragment80_41AC50/func_84203090.s")
 
-#pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/80/fragment80_41AC50/func_842032AC.s")
+extern u32 D_84203A40;
+extern u32 func_8003570C(void);
+void func_8420300C(void *arg0);
+void func_84203090(void *arg0);
+void func_842032AC(void) {
+    s32 index;
+    s32 limit;
+    s32 last;
+
+    if (*(u8 *)&D_84203AD0 != 0) {
+        limit = (D_84203A40 & 0x40) ? 7 : 3;
+        last = *(u8 *)&D_84203AD0 - 1;
+        if (limit >= last) {
+            limit = last;
+        }
+        index = func_8003570C() % (limit + 1);
+        func_8420300C((u8 *)&D_84203AD0 + (index * 0x10 + 4));
+        func_84203090((u8 *)&D_84203AD0 + (index * 0x10 + 4));
+    }
+}
 
 #pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/80/fragment80_41AC50/func_84203360.s")
 
