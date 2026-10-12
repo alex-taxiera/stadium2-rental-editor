@@ -351,7 +351,31 @@ void func_82C02950(void) {
 #endif
 
 #ifdef VERSION_US
-#pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/83/fragment83_code/func_82C0298C.s")
+extern u8 D_82C04A18;
+extern void func_800226C0(s32);
+extern void func_82C02950(void);
+extern u8 D_82C04A14;
+extern u8 D_82C04C38;
+void func_82C0298C(void) {
+    struct Record { u8 pad[0x50]; s32 value; u8 tail[0x178]; };
+    s32 value;
+
+    value = ((struct Record *)&D_82C04C38)[*(s8 *)((u8 *)&D_82C04C38 + 2)].value;
+    switch (value) {
+    case 0:
+        *(s8 *)((u8 *)&D_82C04C38 + 1) = 2;
+        *(u8 *)((u8 *)&D_82C04C38 + 0xA) = D_82C04A14;
+        func_800226C0(2);
+        func_800226C0(4);
+        break;
+    case 1:
+        func_82C02950();
+        *(s8 *)((u8 *)&D_82C04C38 + 1) = 5;
+        *(u8 *)((u8 *)&D_82C04C38 + 0xA) = D_82C04A18;
+        func_800226C0(2);
+        break;
+    }
+}
 #endif
 
 #ifdef VERSION_US
