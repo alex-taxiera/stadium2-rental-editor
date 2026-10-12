@@ -2,8 +2,8 @@
 
 A patch for Pokémon Stadium 2 (USA) that adds an **EDIT** entry to the menu shown when
 you pick a rental Pokémon. It opens an editor for the rental's nickname, moves, level,
-DVs and Stat Exp, limited to what the Game Boy games allow, and the edited Pokémon is
-what enters the battle or the registered team.
+happiness, DVs and Stat Exp, limited to what the Game Boy games allow, and the edited
+Pokémon is what enters the battle or the registered team.
 
 ![The editor open on a rental Abra](images/editor.png)
 
@@ -50,11 +50,11 @@ list has a scroll bar, and a hand points at the move the cursor is on.
 
 | Where | Button | Does |
 |---|---|---|
-| Moving around | D-pad | move between moves, level, DVs and Stat Exp; Up from the top row reaches the name |
+| Moving around | D-pad | move between moves, level, happiness, DVs and Stat Exp; Up from the top row reaches the name |
 | | A | change the field under the cursor |
 | | B | close the editor, back to Yes / No |
 | On a number | Up / Down | one step (hold to repeat) |
-| | Left / Right | a bigger step: 4 for DVs, 10 for level, 8 steps for Stat Exp |
+| | Left / Right | a bigger step: 4 for DVs, 10 for level, 25 for happiness, 8 steps for Stat Exp |
 | | L / R | lowest / highest value |
 | | A or B | done |
 | In the move list | Up / Down | one move (hold to repeat) |
@@ -81,6 +81,10 @@ What can be changed:
   twice. PP is set to the new move's full PP.
 - **Level**, within the range of the rules in force (and never below 2). The game's own
   checks on a team, such as the Poké Cup's level total, still apply when you enter it.
+- **Happiness**, 0–255, beside the level. It decides the power of Return, which grows
+  with it, and of Frustration, which grows without it, each up to 102. While the cursor
+  is on it the top line shows both, and the move list shows them for those two moves.
+  Most rentals start at 128, which gives both moves a power of 51.
 - **DVs** for Attack, Defense, Speed and Special, 0–15. The HP DV follows from the other
   four and is shown greyed.
 - **Stat Exp** for all five stats, 0–65535, in the 64 steps that change the stat.
@@ -112,10 +116,10 @@ A registered team keeps its edits.
 ## What has been tested
 
 Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts. Most of
-it is now an automated suite (`mod/tests/emu`, 26 scenarios) that plays the editor and
+it is now an automated suite (`mod/tests/emu`, 28 scenarios) that plays the editor and
 checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 
-- Moves, level, DVs and Stat Exp edited and carried into a battle.
+- Moves, level, happiness, DVs and Stat Exp edited and carried into a battle.
 - Shiny, gender, Unown's letter and Hidden Power shown and updated as DVs change.
 - Nicknames typed across both pages, special signs included; one shown in battle and
   read back byte for byte from a registered team after a console reset. The ten-character

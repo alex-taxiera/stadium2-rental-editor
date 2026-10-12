@@ -9,8 +9,10 @@ import gen_name_keys
 import harness as h
 from harness import DOWN, RIGHT, UP, EditState, Record, press, presses
 
-# In the editor: Attack DV to 15, then a name of Z, z, the PK sign and the female sign.
-EDIT = (press(RIGHT) + press("A") + press("R") + press("A")
+# In the editor: happiness to 0, Attack DV to 15, then a name of Z, z, the PK sign and the
+# female sign.
+EDIT = (presses(DOWN, 4) + press(RIGHT) + press("A") + press("L") + press("A") + presses(UP, 4)
+        + press(RIGHT) + press("A") + press("R") + press("A")
         + press(UP) + press("A", 20) + presses("B", 4) + presses(DOWN, 2) + presses(RIGHT, 7) + press("A")
         + press("R") + press("A") + press(DOWN) + press("A") + press("L") + press("A")
         + press("Start") + press("A", 20))
@@ -31,7 +33,7 @@ class EnteredPokemonTest(h.EmulatorTest):
     def edit(self) -> Record:
         self.start(*h.OPEN_EDITOR, *EDIT)
         record = self.s.record()
-        self.assertEqual((record.dvs, record.nickname), (0xFAA9, NAME))
+        self.assertEqual((record.happiness, record.dvs, record.nickname), (0, 0xFAA9, NAME))
         self.assertStatsFollow(record)
         return record
 

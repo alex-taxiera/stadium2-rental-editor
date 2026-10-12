@@ -45,9 +45,12 @@ typedef struct Pokemon {
 #define MIN_LEVEL 2 /* level 1 underflows the Medium Slow experience curve */
 #define MAX_DV 15
 #define MAX_STAT_EXP 0xFFFF
+#define MAX_HAPPINESS 255
 
 #define SPECIES_UNOWN 201
 #define SPECIES_SMEARGLE 235
+#define MOVE_RETURN 216
+#define MOVE_FRUSTRATION 218
 #define MOVE_HIDDEN_POWER 237
 
 /* A name is at most ten characters, the Game Boy's limit, and a zero byte ends it.

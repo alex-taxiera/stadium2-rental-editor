@@ -1,11 +1,12 @@
 {
   "edit_entry": "5a50c56e4230f522541f657176ffdf2dd121eb8d",
-  "fields": "2cb15ef0b82e4ce014ce5862c7e8b34b66161031",
-  "fields_hidden_power": "4c7be3ab38eb32232c24c8f6486eac583031c53c",
-  "fields_shiny": "451d95189d211715c9338338f2792a15bfc867fa",
+  "fields": "565593c30e5ead31e24c7f5ec395c850786fdf37",
+  "fields_happiness": "a526c275f87baffff05d9e227446625815738d84",
+  "fields_hidden_power": "1e31257b7f4b7668462b4c8ebc38f3bb17b13be7",
+  "fields_shiny": "5dc9dc749a6be341e7a1be4981dc25cf354e074a",
   "hints_keyboard": "a6587481e9f5e30e2bdd8b72141600dbeea37b74",
   "keyboard_lower": "d9c5761d74907120c8f24e62eaabb00f64b1b47e",
   "keyboard_upper": "170dd72ddeb5c705c7234bfc4ca567fc5fcd6fea",
   "list_end": "8f4bb8a34a800647a2913c36adc01cb8a2c12936",
-  "list_hidden_power": "e98fb0a5e0ece90e27f33f73ba9d6d098189f199"
+  "list_hidden_power": "928e5486bc7691f8dffd764bccd839a5824635d3"
 }

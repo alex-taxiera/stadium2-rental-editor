@@ -11,11 +11,12 @@ enum {
     EDIT_NAME      /* typing a nickname on the keyboard */
 };
 
-/* Fields are addressed as (column, row). Rows line up across the three columns. */
-enum { COL_MOVES, COL_DV, COL_STAT_EXP, NUM_COLS };
+/* Fields are addressed as (column, row). Rows line up across the columns. Happiness is
+ * a column of one field, beside the level. */
+enum { COL_MOVES, COL_HAPPINESS, COL_DV, COL_STAT_EXP, NUM_COLS };
 
 #define NUM_ROWS 5
-#define ROW_LEVEL 4 /* in COL_MOVES, below the four moves */
+#define ROW_LEVEL 4 /* in COL_MOVES, below the four moves; COL_HAPPINESS has this row only */
 #define ROW_HP 0    /* in COL_DV the HP row is derived, so it cannot be selected */
 
 #define EDIT_LIST_ROWS 7
