@@ -113,7 +113,17 @@ void func_82C00624(s16 arg0, s16 arg1, u16 arg2, u16 arg3) {
 #endif
 
 #ifdef VERSION_US
-#pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/83/fragment83_code/func_82C00804.s")
+extern void func_80044270(s16, s16, s16, s16, s32, s32, s32, s32, s32);
+extern void func_82C003BC(u16 arg0, u16 arg1);
+void func_82C00804(s16 arg0, s16 arg1, u16 arg2, u16 arg3) {
+    u16 scale;
+
+    if (arg2 > 0 && arg3 > 0) {
+        func_82C003BC(0x102, 0);
+        scale = 0x10000 / arg2;
+        func_80044270(arg0, arg1, arg2, arg3, 0, 0, scale, 0, 0);
+    }
+}
 #endif
 
 #ifdef VERSION_US
@@ -122,7 +132,7 @@ void func_82C00624(s16 arg0, s16 arg1, u16 arg2, u16 arg3) {
 
 #ifdef VERSION_US
 extern void func_82C00624(s16, s16, u16, u16);
-extern void func_82C00804(s16, s16, s32, s32);
+extern void func_82C00804(s16, s16, u16, u16);
 void func_82C009F8(s16 arg0, s16 arg1, u16 arg2, u16 arg3) {
     func_82C00804((s16) (arg0 + 3), (s16) (arg1 + 3), (arg2 - 6) & 0xFFFF, (arg3 - 6) & 0xFFFF);
     func_82C00624(arg0, arg1, arg2, arg3);
@@ -341,7 +351,31 @@ void func_82C02950(void) {
 #endif
 
 #ifdef VERSION_US
-#pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/83/fragment83_code/func_82C0298C.s")
+extern u8 D_82C04A18;
+extern void func_800226C0(s32);
+extern void func_82C02950(void);
+extern u8 D_82C04A14;
+extern u8 D_82C04C38;
+void func_82C0298C(void) {
+    struct Record { u8 pad[0x50]; s32 value; u8 tail[0x178]; };
+    s32 value;
+
+    value = ((struct Record *)&D_82C04C38)[*(s8 *)((u8 *)&D_82C04C38 + 2)].value;
+    switch (value) {
+    case 0:
+        *(s8 *)((u8 *)&D_82C04C38 + 1) = 2;
+        *(u8 *)((u8 *)&D_82C04C38 + 0xA) = D_82C04A14;
+        func_800226C0(2);
+        func_800226C0(4);
+        break;
+    case 1:
+        func_82C02950();
+        *(s8 *)((u8 *)&D_82C04C38 + 1) = 5;
+        *(u8 *)((u8 *)&D_82C04C38 + 0xA) = D_82C04A18;
+        func_800226C0(2);
+        break;
+    }
+}
 #endif
 
 #ifdef VERSION_US
@@ -739,7 +773,40 @@ void func_82C04778(void) {
 #endif
 
 #ifdef VERSION_US
-#pragma GLOBAL_ASM("asm/us/nonmatchings/fragments/83/fragment83_code/func_82C047C4.s")
+extern void func_8004C09C(s32);
+extern void func_82C04350(void);
+extern void func_82C0458C(void);
+extern void func_82C03524(void);
+extern void func_82C03574(void);
+extern void func_82C0423C(void);
+extern void func_82C04778(void);
+extern u8 D_82C04A14;
+extern u8 D_82C04C38;
+extern s16 D_82C04C44;
+s32 func_82C047C4(s32 arg0, s32 arg1) {
+    typedef struct { u8 bytes[8]; } Blob;
+    typedef struct { u8 a, b, c, d, e, pad; s16 f, g; u8 h; u8 pad2[9]; s32 i, j; } State;
+    State *state;
+    extern Blob D_82C04908;
+    func_8004C09C(0xB);
+    func_82C03524();
+    func_82C03574();
+    state = (State *)&D_82C04C38;
+    state->a = 0;
+    state->b = 0;
+    state->c = 0;
+    state->e = 0xFF;
+    state->h = D_82C04A14;
+    *(Blob *)&D_82C04C44 = D_82C04908;
+    state->f = 0;
+    state->g = 0;
+    state->i = arg0;
+    state->j = arg1;
+    func_82C04350();
+    func_82C0423C();
+    func_82C0458C();
+    func_82C04778();
+}
 #endif
 
 #ifdef VERSION_US
