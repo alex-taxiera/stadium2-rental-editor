@@ -120,6 +120,46 @@ class EditorTest(h.EmulatorTest):
             self.assertEqual(record.exp, h.medium_slow_exp(level))
             self.assertStatsFollow(record)
 
+    def test_happiness(self):
+        self.start(*h.OPEN_EDITOR, *presses(DOWN, 4), *press(RIGHT))
+        state = self.s.edit_state()
+        self.assertEqual((state.mode, state.col, state.row), (EditState.FIELDS, EditState.COL_HAPPINESS, 4))
+        before = self.s.record()
+        self.assertEqual(before.happiness, 128)
+
+        # Both ends, single steps, steps of 25, and no step past an end.
+        self.do(*press("A"))
+        self.assertEqual(self.s.edit_state().mode, EditState.ADJUST)
+        for button, happiness in (("R", 255), (UP, 255), ("L", 0), (DOWN, 0), (UP, 1), (RIGHT, 26), (LEFT, 1),
+                                  (LEFT, 0), ("R", 255), (LEFT, 230)):
+            self.do(*press(button))
+            self.assertEqual(self.s.record().happiness, happiness, button)
+
+        # Nothing else in the record moved. The title row shows Return at 92 and Frustration at 10.
+        record = self.s.record()
+        self.assertEqual(record.data[:0x1C] + record.data[0x1D:], before.data[:0x1C] + before.data[0x1D:])
+        screens.check(self, "fields_happiness", self.s.shot("fields_happiness"))
+
+    def test_happiness_is_a_field_of_the_levels_row_only(self):
+        self.start(*h.OPEN_EDITOR, *press(DOWN))
+
+        def cursor():
+            state = self.s.edit_state()
+            return state.col, state.row
+
+        # Sideways from a move the cursor passes over it, both ways.
+        for button, where in ((RIGHT, (EditState.COL_DV, 1)), (LEFT, (EditState.COL_MOVES, 1))):
+            self.do(*press(button))
+            self.assertEqual(cursor(), where, button)
+
+        # From the level it is the next field along; up from it leads back to the moves.
+        self.do(*presses(DOWN, 3))
+        for button, where in ((RIGHT, (EditState.COL_HAPPINESS, 4)), (RIGHT, (EditState.COL_DV, 4)),
+                              (LEFT, (EditState.COL_HAPPINESS, 4)), (DOWN, (EditState.COL_HAPPINESS, 4)),
+                              (UP, (EditState.COL_MOVES, 3)), (DOWN, (EditState.COL_MOVES, 4))):
+            self.do(*press(button))
+            self.assertEqual(cursor(), where, button)
+
     def test_move_list_offers_exactly_the_legal_moves(self):
         self.start(*h.OPEN_EDITOR, *press("A", 20))
         state = self.s.edit_state()

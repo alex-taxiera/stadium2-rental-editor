@@ -11,6 +11,7 @@
 #define STAT_EXP_BIG_STEP 8
 #define DV_BIG_STEP 4
 #define LEVEL_BIG_STEP 10
+#define HAPPINESS_BIG_STEP 25 /* ten points of Return's or Frustration's power */
 
 /* The stock panel waits this long before loading a model, so the editor does too. */
 #define MODEL_RELOAD_DELAY 2
@@ -90,12 +91,19 @@ static s32 Edit_HiddenPowerPower(Pokemon *mon) {
     return (5 * topBits + (dvs & 3)) / 2 + 31;
 }
 
-/* A move's type and power as this Pokemon would use it. */
+/* A move's type and power as this Pokemon would use it. Return grows with happiness
+ * and Frustration with the lack of it, each up to 102. */
 s32 Edit_MoveType(Pokemon *mon, s32 move) {
     return move == MOVE_HIDDEN_POWER ? Edit_HiddenPowerType(mon) : Move_Type(move);
 }
 
 s32 Edit_MovePower(Pokemon *mon, s32 move) {
+    if (move == MOVE_RETURN) {
+        return mon->happiness * 10 / 25;
+    }
+    if (move == MOVE_FRUSTRATION) {
+        return (MAX_HAPPINESS - mon->happiness) * 10 / 25;
+    }
     return move == MOVE_HIDDEN_POWER ? Edit_HiddenPowerPower(mon) : Move_Power(move);
 }
 
@@ -198,6 +206,9 @@ static s32 Edit_FieldValid(Pokemon *mon, s32 col, s32 row) {
     if (col == COL_MOVES) {
         return row == ROW_LEVEL || row < Edit_SlotCount(mon);
     }
+    if (col == COL_HAPPINESS) {
+        return row == ROW_LEVEL;
+    }
     if (col == COL_DV) {
         return row != ROW_HP;
     }
@@ -210,6 +221,15 @@ static s32 Edit_MoveField(EditState *state, Pokemon *mon, s32 colStep, s32 rowSt
     s32 row = state->row + rowStep;
     s32 i;
 
+    /* Happiness has the level's row and no other. Sideways on the rows above, the cursor
+     * passes over its column; up from it leads to the moves. */
+    if (col == COL_HAPPINESS && row != ROW_LEVEL) {
+        if (rowStep != 0) {
+            col = COL_MOVES;
+        } else {
+            col += colStep;
+        }
+    }
     if (col < 0 || col >= NUM_COLS) {
         return FALSE;
     }
@@ -421,6 +441,13 @@ static void Edit_AdjustField(EditState *state, DetailPanel *panel, s32 steps, s3
         if (value != old) {
             mon->statExp[state->row] = value;
         }
+    } else if (state->col == COL_HAPPINESS) {
+        old = mon->happiness;
+        value = Edit_Clamp(old + steps + bigSteps * HAPPINESS_BIG_STEP, 0, MAX_HAPPINESS);
+        if (toEnd != 0) {
+            value = toEnd < 0 ? 0 : MAX_HAPPINESS;
+        }
+        mon->happiness = value;
     } else {
         old = mon->level;
         value = Edit_Clamp(old + steps + bigSteps * LEVEL_BIG_STEP, Edit_MinLevel(), Edit_MaxLevel());
