@@ -381,7 +381,7 @@ static void Edit_DrawNameBoxes(EditState *state) {
         Gfx_FillRectRgb(x + KEY_WIDTH * state->keyCol, y + KEY_Y + KEY_SPACING * state->keyRow - KEY_BOX_RISE,
                         KEY_WIDTH, KEY_HEIGHT, 0x10, 0x10, 0x80);
     }
-    for (i = state->nameLength; i < MAX_NAME_LENGTH; i++) {
+    for (i = state->nameLength; i < state->nameMax; i++) {
         if (i == state->nameLength) {
             Gfx_FillRectRgb(x + NAME_CELL_WIDTH * i, y + TITLE_Y + NAME_LINE_Y, NAME_LINE_WIDTH,
                             NAME_LINE_HEIGHT, 0xFF, 0xFF, 0);
@@ -412,7 +412,7 @@ static void Edit_MeasureKeys(EditState *state) {
     state->keysMeasured = TRUE;
 }
 
-static void Edit_DrawName(EditState *state) {
+static void Edit_DrawName(EditState *state, char *heading) {
     s32 x = EDIT_WINDOW_X + KEY_X;
     s32 y = EDIT_WINDOW_Y;
     char *wideKeys[NUM_WIDE_KEYS];
@@ -427,7 +427,7 @@ static void Edit_DrawName(EditState *state) {
     key[1] = '\0';
 
     Edit_Heading();
-    Text_Draw(EDIT_WINDOW_X + MOVE_X, y + TITLE_Y, sNickname);
+    Text_Draw(EDIT_WINDOW_X + MOVE_X, y + TITLE_Y, heading);
 
     Edit_White();
     for (i = 0; i < state->nameLength; i++) {
@@ -464,16 +464,29 @@ static void Edit_DrawName(EditState *state) {
     }
 }
 
+/* The keyboard in the editor's window, under whatever the name being typed is called. */
+void Edit_DrawKeyboard(EditState *state, char *heading) {
+    Window_Draw(EDIT_WINDOW_X, EDIT_WINDOW_Y, EDIT_WINDOW_WIDTH, EDIT_WINDOW_HEIGHT);
+    gSPDisplayList(gDisplayListHead++, D_80094D90);
+    Edit_DrawNameBoxes(state);
+
+    gSPDisplayList(gDisplayListHead++, D_80094F50);
+    Text_Begin();
+    Text_SetFont(MENU_FONT, 1);
+    Edit_DrawName(state, heading);
+    Text_End();
+}
+
 /* The editor proper: a window over the party box. */
 void Edit_DrawWindow(DetailPanel *panel) {
     EditState *state = Edit_GetState();
 
-    Window_Draw(EDIT_WINDOW_X, EDIT_WINDOW_Y, EDIT_WINDOW_WIDTH, EDIT_WINDOW_HEIGHT);
-
     if (state->mode == EDIT_NAME) {
-        gSPDisplayList(gDisplayListHead++, D_80094D90);
-        Edit_DrawNameBoxes(state);
-    } else if (state->mode == EDIT_MOVE_LIST) {
+        Edit_DrawKeyboard(state, sNickname);
+        return;
+    }
+    Window_Draw(EDIT_WINDOW_X, EDIT_WINDOW_Y, EDIT_WINDOW_WIDTH, EDIT_WINDOW_HEIGHT);
+    if (state->mode == EDIT_MOVE_LIST) {
         Edit_DrawListCursor(state);
     } else {
         Edit_DrawFieldCursor(state, panel->pokemon);
@@ -482,9 +495,7 @@ void Edit_DrawWindow(DetailPanel *panel) {
     gSPDisplayList(gDisplayListHead++, D_80094F50);
     Text_Begin();
     Text_SetFont(MENU_FONT, 1);
-    if (state->mode == EDIT_NAME) {
-        Edit_DrawName(state);
-    } else if (state->mode == EDIT_MOVE_LIST) {
+    if (state->mode == EDIT_MOVE_LIST) {
         Edit_DrawMoveList(state, panel->pokemon);
     } else {
         Edit_DrawFields(state, panel->pokemon);

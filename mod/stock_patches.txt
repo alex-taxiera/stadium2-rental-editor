@@ -1,0 +1,156 @@
+# In-place instruction changes to stock code that runs while the mod is not in memory.
+# See tools/mod/modtool.py. None of these instructions may be one the fragment loader
+# relocates, which the tool checks.
+#
+# function      address   new instruction
+
+# Fragment 20, the opponent's introduction: as it ends, func_826002BC decides both
+# trainers' pictures. A human gets trainer 0x40, or 0x41 for a kind of player that
+# Free Battle never has. Here a human first gets what their controller port's byte of
+# gTrainerChoices says (mod/include/game.h): a trainer's number plus one, or 0 to leave
+# the choice to the game. The fifteen instructions do in the same room what the stock
+# ones did, plus that. On entry: $t6 the port, $t1 where the pair goes, $v1 the player,
+# $s0 1, $s1 0x40, $s3 0x41.
+func_826002BC   82600344  lui         $t9, 0x8000
+func_826002BC   82600348  addu        $t9, $t9, $t6
+func_826002BC   8260034C  lbu         $t9, 0x358($t9)
+func_826002BC   82600350  sh          $zero, 0x2($t1)
+func_826002BC   82600354  addiu       $t7, $t9, -0x1
+func_826002BC   82600358  bnez        $t9, .L82600398
+func_826002BC   8260035C  sh          $t7, 0x0($t1)
+func_826002BC   82600360  lh          $t7, 0x0($v1)
+func_826002BC   82600364  bnel        $s0, $t7, .L82600398
+func_826002BC   82600368  sh          $s3, 0x0($t1)
+func_826002BC   8260036C  sh          $s1, 0x0($t1)
+func_826002BC   82600370  lbu         $t8, 0x6($v1)
+func_826002BC   82600374  sltiu       $t8, $t8, 0x1
+func_826002BC   82600378  b           .L82600398
+func_826002BC   8260037C  sh          $t8, 0x2($t1)
+
+# The same screen loads both sides' pictures for itself when it starts, in one of two
+# functions by the kind of battle, each with the same rule built in. Both get the same
+# change. Their three calls of the picture loader are relocated, so they stay where they
+# are: the last is the one used, with what follows it, and the other two are stepped
+# over. The instructions between that are no longer reached are left as they were.
+
+# func_8260F7FC. $s0 points into the screen's data at this side, $s1 is the side,
+# $s3 0x428, the size of a player; 0x88($sp) is the screen. A player's kind is at 0xB0,
+# controller port at 0xB2 and the flag for the other expression at 0xB6.
+func_8260F7FC   8260F918  lb          $a2, 0x78($s0)
+func_8260F7FC   8260F91C  bgez        $a1, .L8260F9A0
+func_8260F7FC   8260F920  lw          $t9, 0x88($sp)
+func_8260F7FC   8260F924  multu       $s1, $s3
+func_8260F7FC   8260F928  mflo        $t0
+func_8260F7FC   8260F92C  addu        $v0, $t9, $t0
+func_8260F7FC   8260F930  lb          $t1, 0xB2($v0)
+func_8260F7FC   8260F934  lui         $t2, 0x8000
+func_8260F7FC   8260F938  bltz        $t1, .L8260F914 + 0x4C
+func_8260F7FC   8260F93C  addu        $t2, $t2, $t1
+func_8260F7FC   8260F940  lbu         $t2, 0x358($t2)
+func_8260F7FC   8260F944  or          $a2, $zero, $zero
+func_8260F7FC   8260F948  bnez        $t2, .L8260F9A0
+func_8260F7FC   8260F94C  addiu       $a1, $t2, -0x1
+func_8260F7FC   8260F950  b           .L8260F914 + 0x4C
+func_8260F7FC   8260F954  nop
+func_8260F7FC   8260F960  lh          $t1, 0xB0($v0)
+func_8260F7FC   8260F964  addiu       $a1, $zero, 0x41
+func_8260F7FC   8260F968  slti        $at, $t1, 0x2
+func_8260F7FC   8260F96C  beqz        $at, .L8260F9A0
+func_8260F7FC   8260F970  or          $a2, $zero, $zero
+func_8260F7FC   8260F974  lbu         $t2, 0xB6($v0)
+func_8260F7FC   8260F978  addiu       $a1, $zero, 0x40
+func_8260F7FC   8260F97C  b           .L8260F9A0
+func_8260F7FC   8260F980  sltiu       $a2, $t2, 0x1
+
+# func_826101B4. $v1 points into the screen's data at this side, $s1 is the side;
+# 0x78($sp) is the screen.
+func_826101B4   82610370  lb          $a2, 0x78($v1)
+func_826101B4   82610374  bgez        $a1, .L82610410
+func_826101B4   82610378  or          $a0, $zero, $zero
+func_826101B4   8261037C  sll         $t2, $s1, 5
+func_826101B4   82610380  addu        $t2, $t2, $s1
+func_826101B4   82610384  lw          $t1, 0x78($sp)
+func_826101B4   82610388  sll         $t2, $t2, 2
+func_826101B4   8261038C  addu        $t2, $t2, $s1
+func_826101B4   82610390  sll         $t2, $t2, 3
+func_826101B4   82610394  addu        $v0, $t1, $t2
+func_826101B4   82610398  lb          $t3, 0xB2($v0)
+func_826101B4   8261039C  lui         $t4, 0x8000
+func_826101B4   826103A0  bltz        $t3, .L8261036C + 0x58
+func_826101B4   826103A4  addu        $t4, $t4, $t3
+func_826101B4   826103A8  lbu         $t4, 0x358($t4)
+func_826101B4   826103AC  or          $a2, $zero, $zero
+func_826101B4   826103B0  bnez        $t4, .L82610410
+func_826101B4   826103B4  addiu       $a1, $t4, -0x1
+func_826101B4   826103B8  b           .L8261036C + 0x58
+func_826101B4   826103BC  nop
+func_826101B4   826103C4  lh          $t3, 0xB0($v0)
+func_826101B4   826103C8  addiu       $a1, $zero, 0x41
+func_826101B4   826103CC  slti        $at, $t3, 0x2
+func_826101B4   826103D0  beqz        $at, .L82610410
+func_826101B4   826103D4  or          $a2, $zero, $zero
+func_826101B4   826103D8  lbu         $t4, 0xB6($v0)
+func_826101B4   826103DC  addiu       $a1, $zero, 0x40
+func_826101B4   826103E0  b           .L82610410
+func_826101B4   826103E4  sltiu       $a2, $t4, 0x1
+
+# The same screen gives each trainer a title, under the picture: a text of bank 0x48 by
+# number. A human's is always 0x29, POKeMON TRAINER, in func_826053A4 before a battle and
+# func_82605908 after one. Both now take it from the port's byte of gTrainerTitles, which
+# holds the number XOR 0x29, so that a byte nobody has set gives the same title as before.
+# Each already has the port in hand to tell a human from the COM, which keeps its own.
+#
+# The byte is only read once the port is known not to be negative. 0x80000000 plus -1 is
+# 0x7FFFFFFF, and an address worked out from that is not sign-extended from 32 bits, which
+# this processor answers with an address error: the first version of this patch read the
+# byte before the test and hung the screen on the COM's side.
+
+# func_826053A4. $t3 points at the sides' ports and $t6 is the side, loaded for the
+# multiplication above and left alone by testing the flag in $at instead.
+func_826053A4   82605558  andi        $at, $t9, 0x400
+func_826053A4   8260555C  bnez        $at, .L8260561C
+func_826053A4   82605560  addu        $t8, $t3, $t6
+func_826053A4   82605564  lb          $t9, 0x0($t8)
+func_826053A4   82605568  bltz        $t9, .L826055AC
+func_826053A4   8260556C  lui         $at, 0x8000
+func_826053A4   82605570  addu        $at, $at, $t9
+func_826053A4   82605574  lbu         $a1, 0x354($at)
+func_826053A4   82605578  xori        $a1, $a1, 0x29
+func_826053A4   8260557C  addiu       $a0, $zero, 0x48
+
+# func_82605908. $t2 points at the sides' ports. The instruction at 82605BDC saved $a2
+# to where it was already saved and reloaded from, a few lines up, so its room is free.
+# The instruction at 82605BC0 stays as it is: lh $t5, 0x2($s0).
+func_82605908   82605BBC  lui         $at, 0x8000
+func_82605908   82605BC4  addu        $t6, $t2, $t5
+func_82605908   82605BC8  lb          $t7, 0x0($t6)
+func_82605908   82605BCC  bltz        $t7, .L82605C04
+func_82605908   82605BD0  addiu       $a0, $zero, 0x48
+func_82605908   82605BD4  addu        $at, $at, $t7
+func_82605908   82605BD8  lbu         $a1, 0x354($at)
+func_82605908   82605BDC  xori        $a1, $a1, 0x29
+
+# The same screen also names the sides. In Free Battle func_82601BB0 gives a human "1P" to
+# "4P" by port, over whatever name the entry screen handed on (so not even a Game Pak's
+# trainer name shows there). A player whose port has a name in gTrainerNames now keeps
+# the one handed on, which is that name.
+#
+# There is no room for the test where it belongs, so it is done in instructions that the
+# change to func_826101B4 above left unreached, 0x826103F8 on, and branched to and back
+# from: branches are relative, so they need no relocation, and both are well within
+# reach. The first three instructions make room by taking the side times three from $t3,
+# where the loop already has it. On the way back $t1 is the name's first byte.
+func_82601BB0   82601C3C  sll         $t1, $t3, 2
+func_82601BB0   82601C40  bltz        $v0, .L82601C7C
+func_82601BB0   82601C44  addiu       $a1, $v0, 0x1
+func_82601BB0   82601C48  b           . + 0xE7B0
+func_82601BB0   82601C4C  addu        $s0, $s3, $t1
+func_82601BB0   82601C50  bnez        $t1, .L82601CF0
+func_82601BB0   82601C54  addiu       $a0, $zero, 0x1
+
+# $v0 is the port, not negative.
+func_826101B4   826103F8  sll         $t1, $v0, 3
+func_826101B4   826103FC  lui         $at, 0x8000
+func_826101B4   82610400  addu        $at, $at, $t1
+func_826101B4   82610404  b           . - 0xE7B4
+func_826101B4   82610408  lb          $t1, 0x334($at)

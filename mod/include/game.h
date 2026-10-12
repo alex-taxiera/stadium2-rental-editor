@@ -200,6 +200,125 @@ s32 func_8130CE3C(DetailPanel *panel);
 #define ENTER_MENU_ITEM_Y 0x26
 #define ENTER_MENU_ITEM_SPACING 0x15
 
+/* --- Popup menus (fragment 14) ---
+ *
+ * The lists of choices that pop up over the entry screen, such as OK / OK to Register
+ * once a team is chosen. A menu is drawn from a definition: where it goes, its font and
+ * spacing, and its entries. The screen asks Menu_Poll every frame with the definition it
+ * wants shown: that opens the menu, returns 0 while it is up, and then the result of the
+ * entry chosen, or `cancelResult`.
+ */
+
+typedef struct MenuEntry {
+    /* 0x00 */ u16 text; /* in the definition's text bank */
+    /* 0x02 */ u16 unk02;
+    /* 0x04 */ s16 result;
+    /* 0x06 */ s16 centred; /* nonzero to centre the text in the box */
+} MenuEntry; /* size = 0x8 */
+
+typedef struct MenuDef {
+    /* 0x00 */ u8 unk00[8];
+    /* 0x08 */ s16 x; /* the box is placed against this point */
+    /* 0x0A */ s16 y;
+    /* 0x0C */ s16 alignX;
+    /* 0x0E */ s16 alignY;
+    /* 0x10 */ s8 marginTop;
+    /* 0x11 */ s8 marginBottom;
+    /* 0x12 */ s8 marginLeft;
+    /* 0x13 */ s8 marginRight;
+    /* 0x14 */ s8 font;
+    /* 0x15 */ s8 unk15;
+    /* 0x16 */ s8 rowSpacing;
+    /* 0x17 */ s8 fontArg; /* Text_SetFont's second argument, less two */
+    /* 0x18 */ s16 cancelResult;
+    /* 0x1A */ u16 unk1A;
+    /* 0x1C */ u16 count;
+    /* 0x1E */ u16 textBank;
+    /* 0x20 */ MenuEntry *entries;
+} MenuDef; /* size = 0x24 */
+
+typedef struct Menu {
+    /* 0x00 */ MenuDef *def;
+    /* 0x04 */ f32 opening; /* 0 closed to 16 open */
+    /* 0x08 */ f32 pointerTimer;
+    /* 0x0C */ s32 textArg;
+    /* 0x10 */ s16 x; /* the box, worked out from the definition when the menu opens */
+    /* 0x12 */ s16 y;
+    /* 0x14 */ s16 width;
+    /* 0x16 */ s16 height;
+    /* 0x18 */ u8 status;
+    /* 0x19 */ s8 cursor;
+    /* 0x1A */ u8 controller;
+    /* 0x1B */ u8 unk1B;
+    /* 0x1C */ s32 highlight; /* set when the entries' results differ: the cursor's row is yellow */
+} Menu;
+
+#define MENU_OPEN 2
+
+s32 func_81311C70(Menu *menu, MenuDef *def, s32 controller, s32 textArg);
+#define Menu_Poll func_81311C70
+
+/* --- Trainer pictures ---
+ *
+ * 64 x 64 pictures, 0x2008 bytes each with their header, in an archive of the ROM: a
+ * directory of {offset, size} per trainer, and at each offset a count of expressions and
+ * where each one's pixels start. The game reads them through an archive handle that the
+ * entry screen does not open, so the mod reads the ROM itself.
+ */
+
+#define TRAINER_PICTURES_ROM 0x02268000
+#define NUM_TRAINER_PICTURES 67
+#define TRAINER_PICTURE_SIZE 64
+#define TRAINER_PICTURE_BYTES 0x2008
+
+/* What the game gives every human player: trainer 0x40, looking up. */
+#define DEFAULT_TRAINER_PICTURE 0x40
+#define DEFAULT_TRAINER_EXPRESSION 1
+
+/* Each player's choice, by controller port: 0 for the game's own picture, else a
+ * trainer's number plus one. These are the last four bytes of osAppNMIBuffer, which
+ * libultra clears at power on and the game never uses, so a choice lasts until then. The
+ * stock code that picks a human's picture is changed to read them (mod/stock_patches.txt). */
+#define gTrainerChoices ((u8 *)0x80000358)
+
+/* A player's name and title go with their picture.
+ *
+ * The name: the picker keeps one per team (`party + PARTY_NAME`), a Game Pak's trainer
+ * name or nothing, and when the team is confirmed hands it to the screens that follow,
+ * or "1P" to "4P" from the text bank when there is none. The mod's is at most as long as
+ * a Game Boy trainer name.
+ *
+ * The title: every trainer has one on the screens before and after a battle, a number in
+ * a bank of them. A player's is always PLAYER_TRAINER_TITLE, POKeMON TRAINER. The bank
+ * is not loaded on the entry screen, so the mod reads a title's text from the ROM: a
+ * count, that many offsets from the bank's start, then the texts.
+ *
+ * Both are remembered as gTrainerChoices is, in the bytes of osAppNMIBuffer before it:
+ * a name of TRAINER_NAME_BYTES per port, empty for none, and a title per port as its
+ * number XOR PLAYER_TRAINER_TITLE, so that nothing chosen is 0. */
+#define MAX_TRAINER_NAME 7
+#define TRAINER_NAME_BYTES 8
+#define gTrainerNames ((char *)0x80000334)
+#define gTrainerTitles ((u8 *)0x80000354)
+#define TRAINER_TITLES_ROM 0x01D95240
+#define PLAYER_TRAINER_TITLE 0x29
+
+#define ENTRY_STATE_PARTY 0x15370 /* in the picker's state: the team being chosen */
+#define PARTY_NAME 0x11
+
+char *func_8004C874(s32 bank, s32 id); /* a text of a loaded bank */
+#define Text_Lookup func_8004C874
+#define ENTRY_TEXT_BANK 0xF
+#define ENTRY_TEXT_PLAYER 0x62 /* "1P", then 2P to 4P */
+
+void func_80003F74(void *dst, u32 romStart, u32 romEnd, s32 arg3); /* reads the ROM, and waits for it */
+#define Rom_Read func_80003F74
+
+void func_8004D19C(s32 x, s32 y, void *image, s32 arg3, s32 arg4);
+#define Image_Draw func_8004D19C
+
+extern Gfx D_80094E38[]; /* render state for images */
+
 /* --- Item list (fragments 11 and 14) ---
  *
  * Items on offer are a mask with one bit per item id. The list built from it holds "No
@@ -295,5 +414,8 @@ void orig_func_8130251C(void);
 void orig_func_8130DA04(DetailPanel *panel, void *ctx);
 void orig_func_8130EC9C(DetailPanel *panel);
 void orig_func_81306B64(void *list, s32 x, s32 y, s32 arg3, s32 *available);
+void orig_func_813114B8(Menu *menu, s32 row);
+void orig_func_81302EE4(u8 *party, u8 *state, char *name, s32 id, void *arg4, void *arg5);
+void orig_func_81311650(Menu *menu, void *ctx);
 
 #endif

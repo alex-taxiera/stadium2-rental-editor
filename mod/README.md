@@ -43,6 +43,21 @@ On any screen where Pokémon are entered (Free Battle, registering a team), go t
 rental tab (**R**), press A on a rental, and choose **EDIT** under Yes / No / ITEM. In a
 two-player battle each player edits in turn with their own controller.
 
+Once your team is chosen, Start brings up the usual menu (OK, OK to Register, ...) with
+one more entry, **Change Trainer**. It opens a window with three things to change, Up and
+Down moving between them:
+
+- your **picture**: Left and Right step through every trainer in the game. The first one
+  in the ring is the game's own choice for you.
+- your **name**, in place of 1P to 4P: A opens the editor's keyboard, for up to seven
+  characters. An empty name gives the game's back.
+- your **title**, in place of POKéMON TRAINER: Left and Right step through the forty
+  titles the game gives its own trainers, GYM LEADER, RIVAL and ROCKET among them.
+
+A on the picture or the title keeps all three and B leaves them as they were. They are
+then yours on the screens before and after each battle, for every battle until the
+console is switched off. Each player chooses their own, with their own controller.
+
 The editor covers the party box; the game's own panel underneath shows the Pokémon as it
 will be, with stats recalculated as you change things. The field the cursor is on has the
 game's own brackets around it, which turn green while you are changing a number. The move
@@ -99,7 +114,8 @@ applies: the gender symbol, `SHINY`, Unown's letter, and Hidden Power's type and
 when the Pokémon knows the move. A rental made shiny looks shiny everywhere, battle
 included.
 
-A registered team keeps its edits.
+A registered team keeps its edits. A trainer's picture, name and title are not saved:
+they last until the console is switched off.
 
 ## Known limits
 
@@ -110,13 +126,16 @@ A registered team keeps its edits.
 - Moves are checked one at a time. Combinations that cannot exist on one Pokémon in the
   Game Boy games are not rejected.
 - The original trainer's name and ID stay as the rental has them.
+- Change Trainer has only been tried in Free Battle. A typed name shows there; the other
+  modes name the player in code this does not change.
+- A chosen picture is always the trainer's first expression.
 - Only rentals get EDIT, not Pokémon read from a Game Pak.
 - USA version only.
 
 ## What has been tested
 
 Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts. Most of
-it is now an automated suite (`mod/tests/emu`, 28 scenarios) that plays the editor and
+it is now an automated suite (`mod/tests/emu`, 39 scenarios) that plays the editor and
 checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 
 - Moves, level, happiness, DVs and Stat Exp edited and carried into a battle.
@@ -125,6 +144,11 @@ checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
   read back byte for byte from a registered team after a console reset. The ten-character
   limit, an empty name, backing out, and the cursor wrapping at every edge.
 - A registered team reloaded after a console reset with its edits intact.
+- Change Trainer: every picture in the window, and a chosen picture, name and title where
+  the two sides are set against each other, on the order screen and on the result after
+  a battle; a name taken back; a name still there on the next visit to the entry screen;
+  a second player choosing theirs with controller 2; the computer's picture, name and
+  title never changing; all of it gone after a power cycle.
 - The ITEM list holding all 42 items, and one from beyond the original six (Leftovers)
   entered with a rental.
 - EDIT from Free Battle and from Register POKéMON.
@@ -181,8 +205,10 @@ the patch and of the ROM it produces. A patch you were given can be checked agai
 same file.
 
 The mod leaves the decompilation's sources untouched. Its code is one new overlay stored
-in an unused part of the ROM, and four functions of the entry screen are replaced by
-jumps into it. [NOTES.md](NOTES.md) has the details.
+in an unused part of the ROM, and eight functions of the entry screen are replaced by
+jumps into it. Six more, on the screen that introduces a battle and shows its result,
+have a few instructions changed in place so that they use the chosen trainer picture,
+name and title. [NOTES.md](NOTES.md) has the details.
 
 This is built on [michiiik/pokestadiumgs](https://github.com/michiiik/pokestadiumgs), a
 fork of [pret/pokestadiumgs](https://github.com/pret/pokestadiumgs). Move legality comes
