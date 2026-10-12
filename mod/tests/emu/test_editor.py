@@ -153,6 +153,31 @@ class EditorTest(h.EmulatorTest):
         self.assertEqual(self.s.edit_state().mode, EditState.FIELDS)
         self.assertEqual(self.s.record().data, record.data)
 
+    def test_scroll_bar_follows_the_move_list(self):
+        self.start(*h.OPEN_EDITOR, *press("A", 20))
+        state = self.s.edit_state()
+        last_top = state.count - LIST_PAGE   # the first row showing when the list is at its end
+
+        # It opens where the list does, part of the way down with the Pokemon's move in view.
+        self.assertTrue(0 < state.top < last_top)
+        self.assertEqual(state.scroll, state.top * EditState.SCROLL_UNITS // last_top)
+
+        # The knob glides to where the list has gone, so give it time to arrive.
+        self.do(*press(RIGHT, 40))
+        state = self.s.edit_state()
+        self.assertTrue(0 < state.top < last_top)
+        self.assertEqual(state.scroll, state.top * EditState.SCROLL_UNITS // last_top)
+
+        self.do(*presses(RIGHT, state.count // LIST_PAGE), "wait 40")
+        state = self.s.edit_state()
+        self.assertEqual((state.cursor, state.top, state.scroll),
+                         (state.count - 1, last_top, EditState.SCROLL_UNITS))
+        screens.check(self, "list_end", self.s.shot("list_end"))
+
+        self.do(*presses(LEFT, state.count // LIST_PAGE + 1), "wait 40")
+        state = self.s.edit_state()
+        self.assertEqual((state.cursor, state.top, state.scroll), (0, 0, 0))
+
     def test_removing_and_adding_moves(self):
         self.start(*h.OPEN_EDITOR)
         moves, pp = self.s.record().moves, self.s.record().pp
