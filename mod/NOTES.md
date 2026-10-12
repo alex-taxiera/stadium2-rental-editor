@@ -88,6 +88,29 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
   - Checked: the brackets around a move, the name, a DV and a Stat Exp value, clear of
     the text at both ends of their cycle; the bar's knob at the top, part way and at the
     bottom of Abra's 51 moves, and gliding there after a page.
+- **Trainer picture, name and title.** The menu a chosen team gets (OK / OK to Register
+  / ...) has one more entry, **Change Trainer**, for a human player's team. Its window
+  has three rows: the picture, stepping round the game's 67 trainer pictures and the
+  game's own choice; the name, typed on the editor's keyboard, up to seven characters;
+  and the title, stepping round the forty the game has. A keeps all three for that
+  controller port until power off. They are then that player's where the two sides are
+  set against each other, on the order screen (picture and name; it shows no title), and
+  on the result after the battle. See "Popup menus", "Trainer pictures" and "Trainer
+  names and titles".
+  - Checked: the entry and the window; stepping round the pictures both ways, each
+    byte for byte the ROM's; the rows and the titles going round; B keeping everything
+    as it was; picture, name and title on the versus card, the order screen and the
+    result; an emptied name giving 1P back; a remembered name given to the team on the
+    next visit; the COM's team offering no such entry and the COM keeping its picture,
+    name and title; player 2 choosing with controller 2 while controller 1 does nothing
+    in the window or on the keyboard, and only side 2 changing; everything gone after a
+    power cycle; the 4 MB build.
+  - A choice shows the trainer's first expression. In a battle against the COM the
+    game shows no picture for the player, so there is nothing to change there.
+  - Only tried in Free Battle. The pictures and titles are decided in code every mode
+    shares; the name is not (see "Trainer names and titles").
+  - After the keyboard the window is still on the name, where A types again: keeping
+    takes a step up or down first. The hint line under the window says which A it is.
 - Nothing has been run on standalone ares or hardware yet. BizHawk's Ares64 core is the
   same emulation core as standalone ares.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
@@ -128,6 +151,34 @@ the game's compiler (IDO 7.1), links them at `0x85000000` against the game's sym
 - Only asm functions can be hooked so far (the tool takes their size and body from
   `asm/us/nonmatchings`). Hooking a decompiled function needs its body from elsewhere.
 - `mod/asm_patches.txt` changes single instructions in a moved function, by address.
+  That is also how a call inside a stock function is pointed at the mod: move the
+  function and patch its `jal`.
+- A function with a jump table cannot simply be moved: the table is stock data and still
+  holds addresses inside the stock function, so the moved copy's switch lands back in
+  the stock body. The `detour` hook kind is for that: only the thunk's five
+  instructions are overwritten and only their relocation entries dropped, and the rest
+  of the stock function stays as it was, to be run from wherever the table sends it.
+- **Stock code the mod is not in memory for** is changed in place instead:
+  `mod/stock_patches.txt`, same format as `asm_patches.txt`, for any fragment. The build
+  assembles each such function with its changes (`build/mod/patched.s`, never linked)
+  and `modtool.py inject` copies just the changed words into the ROM. It refuses an
+  instruction that has a relocation, in the object or in the fragment's table, so a
+  patch cannot name a symbol and has to leave relocated instructions (every `jal`, every
+  `lui`/`addiu` pair of an address) where they are. Branches within the function and
+  fixed addresses such as `0x80000358` are fine.
+  - A patch has only the room of the instructions it replaces. Where that is not
+    enough, instructions an earlier patch left unreached can hold the rest (`0x826103F8`
+    on, in `func_826101B4`, serves `func_82601BB0`): a branch there and back is
+    relative, so it needs no relocation even between functions, as long as both are in
+    the same fragment and within a branch's reach. The assembler takes `. + offset`.
+  - A line that leaves an instruction as it was is an error in the tests
+    (`test_every_stock_patch_changed_its_instruction`); leave such a line out.
+  - **Never work out an address from a value that may be negative.** A port of -1 added
+    to `0x80000000` (as `lui $at, 0x8000` holds it, sign-extended to 64 bits) gives
+    `0xFFFFFFFF7FFFFFFF`, which is not a sign-extended 32-bit address, and a load from it
+    is an address error on this processor: the screen hung on a white picture. Test the
+    port first and load after. BizHawk's Ares64 core faithfully hangs; an emulator
+    that works in 32 bits would not have shown it.
 - `modtool.py inject` refuses to build a fragment the loader could get wrong: every
   LO16 must have a HI16, the table must pass the order check, and no `lui` may serve two
   addresses inside the mod. Hence `Edit_GetState` in `mod/src/state.s`: C code reaches
@@ -248,8 +299,12 @@ short jump (rebuilding only that range of the table). The mod fragment is loaded
 
 - State 16 (`func_80068E14`): rule select, stage select, then the entry screen in
   **fragment 14** with shared UI fragments 11 and 18 loaded. **[C]** from the live fragment map.
-- State 13 (`func_800684F0`, tags `btpc`/`btlp`): fragment 24 (pre-battle selection, mode
-  `0x10000`), fragment 20, fragment 12, **fragment 79 (battle)**, fragment 20 again, loop.
+- State 13 (`func_800684F0`, tags `btpc`/`btlp`) is a loop of screens. In Free Battle:
+  **fragment 20** (with 81; the opponent's introduction, then both sides set against
+  each other under "VS"), **fragment 12** (with 80 and 11; the order screen, "All
+  ready!"), **fragment 79** (the battle), fragment 20 again in its other mode (the
+  result), and round to the introduction. Fragment 24 comes first in other modes
+  (`session->0x34` set); it was not loaded in a Free Battle. **[C]** from the fragment map.
 - `Fragment_LoadAndCall` frees the fragment (`main_pool_try_free`) after its entry returns.
 - The second ROM argument to `Fragment_Load*` is the *next* fragment's `ROM_START`.
 
@@ -373,6 +428,47 @@ on entry `(top + row) * 2 + column - 1`. Four rows show at a time.
   `panel->0x39`, the cursor to Yes, and the panel closes).
 - The line under the list is `func_816020BC(item)`, text bank 9: the item's description.
 
+### Popup menus
+
+The lists of choices that pop up over the screen, the menu a chosen team gets on Start
+among them, are one widget (`fragment14_109280.c`), at `state + 0x74`. **[C]** in source
+and at runtime. See `Menu`, `MenuDef` and `MenuEntry` in `mod/include/game.h`.
+
+- A menu is drawn from a **definition** of 0x24 bytes: `+0x08` the point the box is
+  placed against and `+0x0C` how (x centred on it, y from it down), `+0x10` margins
+  (top, bottom, left, right), `+0x14` font, `+0x16` row spacing, `+0x18` the result for
+  B, `+0x1C` entry count, `+0x1E` text bank, `+0x20` the entries. An entry is 8 bytes:
+  `+0x00` text id, `+0x04` result, `+0x06` nonzero to centre it.
+- The screen calls `func_81311C70(menu, definition, controller, -1)` every frame it
+  wants a menu up. That opens it if it is not (`func_81311B98` → `func_813110F0`, which
+  measures every entry's text for the box's width), returns 0 while it is open, and
+  once an entry is chosen or B pressed returns that result and closes it. Menu:
+  `+0x00` its definition, `+0x04` how far open (0 to 16), `+0x10` the box (x, y, w, h),
+  `+0x18` status (0 closed, 1 opening, 2 open, 3 closing, 4 done), `+0x19` cursor,
+  `+0x1A` controller.
+- `func_81311650(menu, ctx)` draws it and `func_813114B8(menu, row)` one entry: its text
+  from the bank, yellow under the cursor, at `x + left margin`, `y + top margin +
+  spacing * row`.
+- **The team menu** is asked for by `func_81303648(party)`, with the definition
+  `func_813035A0(party)` picks from six (`D_81311E5C` on: five, four or three entries
+  from OK, OK to Register, Reselect some, Reselect all and Change Item, text bank 0xF
+  0x1A–0x1E, results 0–6). It acts on the result through a jump table and ignores any
+  other value.
+- **Change Trainer** is added by handing the menu a copy of the definition with one more
+  entry (`Trainer_ExtendMenu`), result `0x7F`. `func_81303648` runs from the mod (a
+  `detour`, for its jump table) with its call of `func_81311C70` pointed at
+  `Mod_PollTeamMenu`; `Mod_DrawMenuRow` draws the entry's text, which no bank has, and
+  the stock code does the rest: box size, cursor, pointing hand. The entry's own text id
+  is the first stock entry's, which is only measured. Not on the COM's team's menu:
+  `settings + 0x900 + side` is the side's controller port, negative for the COM, and
+  `state + 0x1A142` the side whose team is being chosen.
+- While the trainer window is up the menu is closed and `Mod_PollTeamMenu` answers 0,
+  "still open", without asking it; the frame after the window closes, the stock code's
+  next call opens the menu again. The screen still calls `func_81311650` for the closed
+  menu every frame, which is where the window is drawn from (`Mod_DrawMenu`), or the
+  keyboard while a name is typed. The two are different regions, being in different
+  places on the screen (see "Redrawing").
+
 ### Redrawing
 
 The screen does not repaint every frame. Each frame a widget registers its rectangle with
@@ -485,6 +581,86 @@ the battle code, so the editor works out its type and power itself (`Edit_MoveTy
 `Edit_MovePower`). Nicknames tint a Pokémon (`func_8003F5AC`, from the name, OT name and
 ID), but DVs play no part in that.
 
+## Trainer pictures
+
+- **The pictures** are an archive at ROM `0x02268000`: `+0x0C` a count of 67, then
+  `{offset, size}` per trainer (0x10 bytes each); at each offset a count of expressions
+  (1 to 3) and for each where its pixels start, plus 8. A picture is 0x2008 bytes: an
+  8-byte header (64, 64, format 2) and 64 x 64 16-bit pixels. Trainer 0x40 is the
+  player, with two expressions; 0x14 is CAL, Free Battle's first opponent.
+- `func_8004E0F0(buffer, trainer, expression)` loads one (allocating when `buffer` is
+  NULL) through an archive handle at `D_80097120->0x28`. A screen has that handle only
+  if it started its assets with bit 0x40 set (**[I]** from `func_8004C09C(0x43)` in
+  fragment 20 and `0x4F` in fragment 12); the entry screen passes `0xF` and has none. The mod's window
+  therefore reads the ROM itself (`Trainer_LoadPicture`, with `func_80003F74`, which waits for
+  the read) and draws the buffer with `func_8004D19C`.
+- **Who gets which** is decided in fragment 20, three times over, each loop taking the
+  sides in turn. The screen's own state is `D_82615A80`, with a player every 0x428 bytes
+  from `+0xB0`: `+0x00` kind (1 in Free Battle), `+0x02` controller port (negative for
+  the COM), `+0x06` a flag for the player's other expression.
+  - `func_8260F7FC` (before a battle) and `func_826101B4` (the result after one) load
+    both sides' pictures for the screen itself, into `D_8261A490 + 0xC8 + 4 * side`. The
+    COM's come from elsewhere (`func_8260F49C`, a table at `+0x58`).
+  - `func_826002BC`, as the screen ends, writes a pair `(trainer, expression)` per side
+    to `session->0x2C + 0x80 + 4 * side`, for the screens that follow: `func_8006BAC4`
+    copies them to the order screen's `arg + 0x880`, and `func_81406AAC` loads them.
+  - All three use the same rule for a human: trainer 0x40 with expression 1 (0 when the
+    flag is set), or trainer 0x41 for a kind of 2 or more.
+  - All three first look at a pair of bytes per side, `session->0x2C + 0x74 + side` and
+    `+ 0x78 + side`, and take the picture from there unless the first is -1. The game
+    has a function to set them (`func_8006C5AC`, with a 0x16-byte name) that nothing
+    calls, and `func_8006BF78` puts them back to -1 before every battle, so they cannot
+    be set ahead of time from the entry screen.
+- **The session** (`D_8009DF70`) outlives the entry screen and the battle loop: `+0x00`
+  the mode (`0x0220` in Free Battle), `+0x08` each side's controller port, `+0x1C` the
+  battle's data, `+0x24` the entry screen's settings, `+0x28` the order screen's
+  argument, `+0x2C` fragment 20's.
+- **The choice** is one byte per controller port at `0x80000358`: 0 for the game's own
+  picture, else a trainer's number plus one. Those are the last four bytes of
+  `osAppNMIBuffer` (`0x8000031C`, 64 bytes), which libultra zeroes at power on and this
+  game never touches. The mod's window writes it; the mod is gone by the time it is read.
+- **Reading it** is done by stock code changed in place (`mod/stock_patches.txt`): in
+  each of the three functions the human's rule is rewritten in the room it took, to
+  look up the port's byte first. The two loaders keep their three relocated calls of
+  `func_8004E0F0` where they are and use the last. A choice always shows expression 0,
+  the one every trainer has.
+
+## Trainer names and titles
+
+- **A side's name** starts on the entry screen. Each team being chosen has one
+  (`party + 0x11`, the party at `state + 0x15370`), given by `func_81302EE4(party,
+  state, name, id, ...)` when the side's turn begins: a Game Pak's trainer name, or
+  none. At OK `func_81300BE8` copies it to `settings + 0x904 + 12 * side`, or "1P" to
+  "4P" (text bank 0xF, 0x62 + port) when there is none. From there it goes to fragment
+  20's data (`session->0x2C + 0x8D0 + 12 * side`) and to the order screen's argument
+  (`+0x850`).
+- **In Free Battle fragment 20 names a human again**: `func_82601BB0` formats "%dP" from
+  the port over whatever was handed on, so not even a Game Pak's trainer name shows
+  there. The other modes go through `func_82601A84` instead, which the mod leaves
+  alone and nobody has looked at closely.
+- **The mod's name** is eight bytes per controller port at `0x80000334`, empty for none,
+  in `osAppNMIBuffer` like the picture (below). Keeping one in the window writes it there
+  and to the team being chosen; `Mod_PartyInit` (in place of `func_81302EE4`) gives it
+  to the player's team on every later visit; and `func_82601BB0` is patched to leave a
+  human's name alone when the port has one. Seven characters, a Game Boy trainer
+  name's length: twelve bytes a side is the room downstream, but the order screen's
+  name plate is narrow.
+- **A title** is a number in text bank 0x48 (ROM `0x01D95240`: a count of 70, that many
+  offsets from the bank's start, then the texts). The numbers run as the Game Boy games'
+  trainer classes do, many sharing a text (RIVAL nineteen times), the last few empty. A
+  human's is always 0x29, POKéMON TRAINER, written as a constant where the versus card
+  (`func_826053A4`) and the result (`func_82605908`) look the text up with
+  `func_8004C874(0x48, number)`; each has the side's port in hand just before, to tell a
+  human from the COM, whose title comes from its trainer's data.
+- **The mod's title** is a byte per port at `0x80000354`, the number XOR 0x29 so that a
+  byte nobody has set gives the stock title. The two lookups are patched to read it. The
+  window steps through one number per different text, the player's own first
+  (`tools/mod/gen_trainer_titles.py` → `mod/data/trainer_titles.inc.c`, 40 of them), and
+  reads the text from the ROM, the bank not being loaded on the entry screen.
+- **`osAppNMIBuffer`, as the mod uses it**: `0x80000334` names (4 x 8), `0x80000354`
+  titles (4), `0x80000358` pictures (4). The first 0x18 bytes are untouched.
+  `mod/tests/test_trainer_pictures.py` checks the layout against the patches.
+
 ## Names
 
 A record's nickname (`+0x34`) and OT name (`+0x40`) are zero-terminated strings in the
@@ -528,15 +704,16 @@ The entry screen (`func_813029F0`, fragment 14's only way in) pushes the pool st
 loads its assets, calls `func_8130251C` (the mod's boot hook, so the mod fragment is
 allocated inside that state) and pops the state on the way out, which frees the mod.
 
-Measured in the rental picker with the mod loaded (0x57C0 bytes at `0x80253290`): with
-4 MB of RAM the pool has `0x26FB0` bytes free (160 KB). With 8 MB it has exactly 4 MB
-more (measured on the previous build, whose mod was 0x4AC0 bytes: `0x427CB0` against
-`0x27CB0`).
+Measured in the rental picker with the mod loaded (0x9770 bytes at `0x80253290`, of
+which 0x2008 are the trainer window's picture): with 4 MB of RAM the pool has `0x23000`
+bytes free (143 KB). With 8 MB it has exactly 4 MB more (measured on an earlier build,
+whose mod was 0x4AC0 bytes: `0x427CB0` against `0x27CB0`).
 
 The figure does not move while a rental is opened, edited, renamed, made shiny and
-entered: the screen allocates what it needs up front. Without the mod the 4 MB figure
-would be 22 KB higher. In the battle that follows, 4 MB leaves `0x1E2A0` free, with the
-mod unloaded (also from the previous build; the mod is not in memory by then).
+entered, or while the trainer window reads a picture and a title: the screen and the mod
+allocate what they need up front. Without the mod the 4 MB figure would be 38 KB higher
+(`0x2C780`). In the battle that follows, 4 MB leaves `0x1E2A0` free, with the mod
+unloaded (from an earlier build; the mod is not in memory by then).
 
 BizHawk's Ares64 core always has 8 MB. `tools/mod/make_4mb_rom.py` writes a test copy of
 a ROM whose `osGetMemSize()` returns 4 MB; run it from power on, not from a savestate.
@@ -554,10 +731,11 @@ build tools or to the commit of the decompilation the mod sits on.
 
     python3 -m unittest discover -s mod/tests       # tools and checksums; WSL or Windows; seconds
     python3 tools/mod/checksums.py check            # the built mod against the record
-    python3 -m unittest discover -s mod/tests/emu   # the game in BizHawk; Windows; about 6 minutes
+    python3 -m unittest discover -s mod/tests/emu   # the game in BizHawk; Windows; about 12 minutes
 
 1. **Tool tests** (`mod/tests/test_*.py`): the ROM checker, relocation tool, injector,
-   patch tool, and the generated move and keyboard tables.
+   patch tool, the generated move, keyboard and trainer title tables, and what the mod
+   assumes about the ROM's trainer pictures.
 2. **Checksums** (`mod/checksums.txt`): SHA-1 of the original ROM, the mod ROM and the
    patch. The build is repeatable, so the same sources always give the same bytes.
    `build_mod.sh` reports the comparison at the end of every build, and
@@ -574,6 +752,8 @@ build tools or to the commit of the decompilation the mod sits on.
    - `test_teams.py`: the edited record in the party and in battle; a registered team
      after a power cycle; Poké Cup's level range; two players.
    - `test_items.py`: what the ITEM list offers, and an item from it reaching the party.
+   - `test_trainer.py`: Change Trainer, its window and keyboard, and the picture, name
+     and title on the screens up to and after a battle, for one player and for two.
    - `test_without_expansion_pak.py`: the 4 MB test ROM.
    - Stats are compared with the Generation 2 formula worked out in Python from the base
      stats in the ROM; the move list with `mod/data/legal_moves.inc.c`; a saved name
@@ -589,13 +769,17 @@ at the new screenshots in `.emu/test/remote`, `UPDATE_SCREENS=1` re-records them
 ### Moving to a newer base
 
 The mod only depends on the decompilation for the game's symbols, the build tools, and
-the assembly of the four functions it hooks (`mod/hooks.txt`). Before rebasing, compare
+the assembly of the functions it hooks (`mod/hooks.txt`) or changes in place
+(`mod/stock_patches.txt`). Before rebasing, compare
 the old and new base:
 
     git fetch origin
     git diff --name-only <base> origin/master -- . ':!src' ':!docs' ':!COVERAGE.md'    # build or tools changed?
     git diff --name-only <base> origin/master -- src/fragments/14/fragment14_FA520.c \
         src/fragments/14/fragment14_104FC0.c src/fragments/14/fragment14_FD770.c \
+        src/fragments/14/fragment14_FAD40.c src/fragments/14/fragment14_109280.c \
+        src/fragments/20/fragment20_1280F0.c src/fragments/20/fragment20_128B10.c \
+        src/fragments/20/fragment20_12C460.c \
         hand_asm                                                                        # hooked code changed?
 
 If both are empty, rebase, rebuild (`wsl_build.sh`, then `wsl_build.sh mod`) and run the

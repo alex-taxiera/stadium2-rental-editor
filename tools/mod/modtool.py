@@ -8,15 +8,26 @@ original body is assembled into the mod as `orig_<name>` so it can still be call
 
 mod/hooks.txt lists the hooks, one per line:
 
-    boot  <function>  <target>    load the mod fragment, then continue at <target>
-    jump  <function>  <target>    jump to <target>; the mod must already be loaded
+    boot    <function>  <target>    load the mod fragment, then continue at <target>
+    jump    <function>  <target>    jump to <target>; the mod must already be loaded
+    detour  <function>  <target>    as jump, but the rest of the stock function stays
 
 Each target gets a slot in a jump table at the start of the fragment, so thunks
 only ever need the fragment's load address, which they read from the game's
 fragment map. Thunks contain no relocations.
 
-    modtool.py asm <hooks> <asm-dir> <out-dir>      write entry.s and moved.s
+A function with a jump table needs `detour`: the table still holds addresses inside
+the stock function, so the moved copy's switch lands back in the stock body, which
+therefore has to be left as it was past the thunk.
+
+Stock code that the mod is not in memory for can be changed in place instead.
+mod/stock_patches.txt lists single instructions to replace, in any fragment, as
+mod/asm_patches.txt does for moved functions. Such an instruction may not be one the
+fragment loader relocates.
+
+    modtool.py asm <hooks> <asm-dir> <out-dir>      write entry.s, moved.s and patched.s
     modtool.py inject --mod-elf E --game-elf G --rom R --hooks H --asm-dir A --out O
+                      [--patched-obj P]
 """
 
 import argparse
@@ -37,6 +48,7 @@ SLOT_SIZE = 8                # `j target` + delay slot
 MOD_SECTION = ".modfrag"
 
 STOCK_FRAGMENT = 14          # every hook currently lives in the entry/picker fragment
+PATCHED_PREFIX = "patched_"  # label of a stock function assembled with its in-place changes
 CHECKSUM_OFFSET = 0x10
 
 INSTRUCTION = re.compile(r"/\* [0-9A-F]+ ([0-9A-F]{8}) [0-9A-F]{8} \*/")
@@ -52,8 +64,8 @@ def read_hooks(path: Path) -> list:
         fields = line.split("#")[0].split()
         if not fields:
             continue
-        if len(fields) != 3 or fields[0] not in ("boot", "jump"):
-            raise ValueError(f"{path}:{number}: expected 'boot|jump <function> <target>'")
+        if len(fields) != 3 or fields[0] not in ("boot", "jump", "detour"):
+            raise ValueError(f"{path}:{number}: expected 'boot|jump|detour <function> <target>'")
         hooks.append({"kind": fields[0], "function": fields[1], "target": fields[2], "slot": len(hooks)})
     if sum(h["kind"] == "boot" for h in hooks) != 1:
         raise ValueError(f"{path}: exactly one 'boot' hook is required")
@@ -122,11 +134,28 @@ def apply_patches(name: str, source: str, patches: list) -> str:
     return source
 
 
-def write_asm(hooks: list, asm_dir: Path, out_dir: Path, patches: dict = None) -> None:
+def renamed_function(asm_dir: Path, name: str, prefix: str, patches: list) -> str:
+    """A stock function's assembly under the label `<prefix><name>`, with patches applied."""
+    source = find_function_asm(asm_dir, name).read_text()
+    renamed, count = re.subn(rf"^(\s*glabel\s+){re.escape(name)}\b", rf"\1{prefix}{name}",
+                             source, flags=re.M)
+    if count != 1:
+        raise ValueError(f"{name}: expected one glabel")
+    return apply_patches(name, renamed, patches)
+
+
+def write_asm(hooks: list, asm_dir: Path, out_dir: Path, patches: dict = None,
+              stock_patches: dict = None) -> None:
     patches = patches or {}
-    unknown = set(patches) - {hook["function"] for hook in hooks}
+    stock_patches = stock_patches or {}
+    hooked = {hook["function"] for hook in hooks}
+    unknown = set(patches) - hooked
     if unknown:
         raise ValueError(f"patches for functions that are not hooked: {sorted(unknown)}")
+    moved_away = set(stock_patches) & hooked
+    if moved_away:
+        raise ValueError("stock patches for hooked functions, whose code runs from the mod; "
+                         f"use asm_patches.txt: {sorted(moved_away)}")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     entry = [ASM_HEADER, ".section .text", "",
@@ -141,14 +170,16 @@ def write_asm(hooks: list, asm_dir: Path, out_dir: Path, patches: dict = None) -
     moved = [ASM_HEADER]
     for hook in hooks:
         name = hook["function"]
-        source = find_function_asm(asm_dir, name).read_text()
-        renamed, count = re.subn(rf"^(\s*glabel\s+){re.escape(name)}\b", rf"\1orig_{name}",
-                                 source, flags=re.M)
-        if count != 1:
-            raise ValueError(f"{name}: expected one glabel")
-        renamed = apply_patches(name, renamed, patches.get(name, []))
+        renamed = renamed_function(asm_dir, name, "orig_", patches.get(name, []))
         moved += [f"# --- {name}, moved out of fragment {STOCK_FRAGMENT} ---", ".section .text", renamed]
     (out_dir / "moved.s").write_text("\n".join(moved) + "\n", newline="\n")
+
+    # Never linked: assembled only so that inject can lift the changed words out of it.
+    patched = [ASM_HEADER]
+    for name in sorted(stock_patches):
+        renamed = renamed_function(asm_dir, name, PATCHED_PREFIX, stock_patches[name])
+        patched += [f"# --- {name}, with instructions changed in place ---", ".section .text", renamed]
+    (out_dir / "patched.s").write_text("\n".join(patched) + "\n", newline="\n")
 
 
 # --- thunks ---------------------------------------------------------------------------
@@ -274,7 +305,48 @@ def update_checksum(rom: bytearray) -> None:
     struct.pack_into(">II", rom, CHECKSUM_OFFSET, first, second)
 
 
-def inject(mod_elf: fr.Elf, game_elf: fr.Elf, rom: bytearray, hooks: list, asm_dir: Path) -> dict:
+def stock_fragment(game_elf: fr.Elf, address: int) -> tuple:
+    """(number, section) of the stock fragment that holds `address`."""
+    for section in game_elf.sections:
+        m = re.fullmatch(r"\.fragment(\d+)", section.name)
+        if m and section.addr <= address < section.addr + section.size:
+            return int(m.group(1)), section
+    raise ValueError(f"{address:#x} is not in any fragment")
+
+
+def apply_stock_patches(rom: bytearray, game_elf: fr.Elf, patched: fr.Elf, stock_patches: dict,
+                        asm_dir: Path) -> int:
+    """Writes the changed instructions of mod/stock_patches.txt over the stock ones.
+
+    `patched` is the object assembled from patched.s. Only the words at the listed
+    addresses are taken from it, and none of them may need relocating: not by the
+    linker (the object is never linked) and not by the game's fragment loader.
+    """
+    if not stock_patches:
+        return 0
+    code = patched.contents(patched.by_name[".text"])
+    unlinked = {r.offset for r in patched.relocations(".text")}
+    count = 0
+    for name, patches in sorted(stock_patches.items()):
+        start, _ = function_extent(find_function_asm(asm_dir, name))
+        if start != game_elf.symbol(name):
+            raise ValueError(f"{name}: assembly and ELF disagree on its address")
+        number, section = stock_fragment(game_elf, start)
+        stock_rom = game_elf.symbol(f"fragment{number}_ROM_START")
+        loaded = {entry & fr.OFFSET_MASK for entry in fr.read_table(rom, fr.read_header(rom, stock_rom))}
+        base = patched.symbol(PATCHED_PREFIX + name)
+        for address, _ in patches:
+            at, offset = base + address - start, address - section.addr
+            if at in unlinked or offset in loaded:
+                raise ValueError(f"{name}: the instruction at {address:#x} is relocated, "
+                                 "so it cannot be changed in place")
+            rom[stock_rom + offset:stock_rom + offset + 4] = code[at:at + 4]
+            count += 1
+    return count
+
+
+def inject(mod_elf: fr.Elf, game_elf: fr.Elf, rom: bytearray, hooks: list, asm_dir: Path,
+           patched: fr.Elf = None, stock_patches: dict = None) -> dict:
     fragment = pack_fragment(mod_elf)
     rom_start, rom_end = HOLE_START, HOLE_START + len(fragment)
     if rom_end > HOLE_END:
@@ -296,6 +368,7 @@ def inject(mod_elf: fr.Elf, game_elf: fr.Elf, rom: bytearray, hooks: list, asm_d
     map_entry = game_elf.symbol("D_800CC630") + MOD_FRAGMENT_ID * 8
     fragment_load = game_elf.symbol("Fragment_Load")
 
+    table = fr.read_table(rom, header)
     ranges = []
     for hook in hooks:
         start, size = function_extent(find_function_asm(asm_dir, hook["function"]))
@@ -308,20 +381,32 @@ def inject(mod_elf: fr.Elf, game_elf: fr.Elf, rom: bytearray, hooks: list, asm_d
         if 4 * len(words) > size:
             raise ValueError(f"{hook['function']} is {size} bytes, too small for a {4 * len(words)}-byte thunk")
         offset = start - stock.addr
-        body = struct.pack(f">{len(words)}I", *words).ljust(size, b"\0")
-        rom[stock_rom + offset:stock_rom + offset + size] = body
-        ranges.append((offset, offset + size))
+        body = struct.pack(f">{len(words)}I", *words)
+        if hook["kind"] == "detour":
+            # Only the thunk's bytes change. A HI16 or LO16 entry among them would leave
+            # its other half, further on in the body that stays, without a partner.
+            halves = [entry for entry in table
+                      if offset <= (entry & fr.OFFSET_MASK) < offset + len(body)
+                      and (entry >> 24) & 0x7F in (fr.R_MIPS_HI16, fr.R_MIPS_LO16)]
+            if halves:
+                raise ValueError(f"{hook['function']}: the thunk would split an address the loader "
+                                 f"relocates in two halves, at {stock.addr + (halves[0] & fr.OFFSET_MASK):#x}")
+        else:
+            body = body.ljust(size, b"\0")
+        rom[stock_rom + offset:stock_rom + offset + len(body)] = body
+        ranges.append((offset, offset + len(body)))
 
     # The thunks have no relocations, so the stock entries for those bytes just go.
-    table = fr.read_table(rom, header)
     kept = fr.merge_table(table, [], ranges)
     table_at = stock_rom + header.reloc_offset
     rom[table_at:table_at + 4 * (len(table) + 1)] = fr.pack_table(kept).ljust(4 * (len(table) + 1), b"\0")
 
+    patched_count = apply_stock_patches(rom, game_elf, patched, stock_patches or {}, asm_dir)
+
     update_checksum(rom)
     return {"rom_start": rom_start, "rom_end": rom_end, "size": len(fragment),
             "relocations": struct.unpack_from(">I", fragment, len(mod_elf.contents(mod_elf.by_name[MOD_SECTION])))[0],
-            "removed": len(table) - len(kept), "hooks": len(hooks)}
+            "removed": len(table) - len(kept), "hooks": len(hooks), "patched": patched_count}
 
 
 def main() -> int:
@@ -338,20 +423,26 @@ def main() -> int:
     p.add_argument("--hooks", type=Path, required=True)
     p.add_argument("--asm-dir", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--patched-obj", type=Path, help="patched.s, assembled")
     args = parser.parse_args()
 
     hooks = read_hooks(args.hooks)
+    stock_patches = read_patches(args.hooks.with_name("stock_patches.txt"))
     if args.command == "asm":
         write_asm(hooks, args.asm_dir, args.out_dir,
-                  read_patches(args.hooks.with_name("asm_patches.txt")))
+                  read_patches(args.hooks.with_name("asm_patches.txt")), stock_patches)
         return 0
 
+    if stock_patches and not args.patched_obj:
+        parser.error("stock_patches.txt needs --patched-obj")
     rom = bytearray(args.rom.read_bytes())
-    info = inject(fr.Elf(args.mod_elf), fr.Elf(args.game_elf), rom, hooks, args.asm_dir)
+    info = inject(fr.Elf(args.mod_elf), fr.Elf(args.game_elf), rom, hooks, args.asm_dir,
+                  fr.Elf(args.patched_obj) if stock_patches else None, stock_patches)
     args.out.write_bytes(rom)
     print(f"mod fragment: {info['size']:#x} bytes at ROM {info['rom_start']:#x}-{info['rom_end']:#x}, "
           f"{info['relocations']} relocations")
     print(f"hooks: {info['hooks']} thunks written, {info['removed']} stock relocation entries removed")
+    print(f"stock code: {info['patched']} instructions changed in place")
     print(f"wrote {args.out}")
     return 0
 

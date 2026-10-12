@@ -54,6 +54,9 @@ for source in mod/src/*.c; do
     $CC $CFLAGS -o "$object" "$source"
     objects+=("$object")
 done
+# Stock functions with instructions changed in place. Not part of the mod fragment:
+# inject copies the changed words from this object into the ROM.
+$AS $ASFLAGS -o "$OUT/patched.o" "$OUT/patched.s"
 
 # Every global symbol of the game, as linker-script assignments. (ld's --just-symbols
 # would be simpler, but it rejects jumps from the fragment to main-segment functions.)
@@ -64,7 +67,8 @@ $LD -T mod/mod.ld -T "$OUT/game_syms.ld" --emit-relocs --no-check-sections \
     --accept-unknown-input-arch -e 0 -Map "$OUT/mod.map" -o "$OUT/mod.elf" "${objects[@]}"
 
 "$PYTHON" tools/mod/modtool.py inject --mod-elf "$OUT/mod.elf" --game-elf "$GAME_ELF" \
-    --rom "$ROM" --hooks mod/hooks.txt --asm-dir "$ASM_DIR" --out "$MOD_ROM"
+    --rom "$ROM" --hooks mod/hooks.txt --asm-dir "$ASM_DIR" --out "$MOD_ROM" \
+    --patched-obj "$OUT/patched.o"
 
 "$PYTHON" tools/mod/bps.py create "$BASEROM" "$MOD_ROM" "$PATCH"
 "$PYTHON" tools/mod/make_4mb_rom.py "$MOD_ROM" "$MOD_ROM_4MB"
