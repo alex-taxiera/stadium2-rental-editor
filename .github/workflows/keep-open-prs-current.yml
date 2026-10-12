@@ -87,8 +87,18 @@ jobs:
             // isSmallChange -- both decide the same question (does this PR
             // need a fresh-against-master check before it may merge?) and
             // must agree, or a PR could sit here forever never judged
-            // eligible to skip this update in the first place.
-            const smallChangePattern = /^src\/.*\.c$/;
+            // eligible to skip this update in the first place. A container
+            // match's own region-notes step (apply_region_notes) always
+            // adds the matching docs/regions/**/*.md alongside the src/*.c
+            // body, so a plain match PR is still "small" with that file
+            // included -- excluding it here mis-classified every real
+            // match PR as "non-small", forcing a master-merge into its
+            // branch on every single push to master. With master landing a
+            // new commit every minute or two from an active fleet, that
+            // retriggers this PR's own gate check before the previous
+            // attempt ever finishes, starving it indefinitely (confirmed
+            // live, 2026-10-12, PR #749: 3+ consecutive cancelled runs).
+            const smallChangePattern = /^(src\/.*\.c|docs\/regions\/.*\.md)$/;
 
             const { data: masterRef } = await github.rest.git.getRef({
               owner, repo, ref: 'heads/master',
