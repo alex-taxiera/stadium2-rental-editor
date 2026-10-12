@@ -913,7 +913,14 @@ and whoever has the ROM attaches the patch they built:
   a README there in preference to the one in the root. That leaves the decompilation's
   `README.md` untouched, so it never conflicts in a rebase. Links in it are relative to
   `.github/`. Its screenshots are in `mod/images/`: test screenshots from
-  `.emu/test/remote`, reduced to 256 colours.
+  `.emu/test/remote`, reduced to 256 colours with Pillow
+  (`image.quantize(256, method=Image.Quantize.FASTOCTREE)`, saved with `optimize=True`),
+  which gives the same bytes every time. Five are shots the emulator tests take:
+  `menu` is `edit_entry`, `editor` is `fields_shiny`, `moves` is `list_hidden_power`,
+  `keyboard` is `keyboard_upper`, and `versus` is `versus_named`; `team_menu`, `team`
+  and `trainer` were taken by hand with three rentals on the team. Before a release,
+  reduce the tests' fresh shots the same way and compare: a picture that no longer
+  comes out the same is out of date (`moves` was, for v0.2.0, by one number).
 - **Why a changelog by hand.** After a rebase every commit of the mod is new, and between
   two tags lie hundreds of decompilation commits, so notes generated from the commit log
   or from pull requests would be wrong.
