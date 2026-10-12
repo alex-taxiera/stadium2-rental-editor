@@ -74,6 +74,13 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
   - Checked: the list holds "No item" and the 42 in the game's order; Leftovers, eight
     rows down, was chosen for Abra and is in the party record. Names and descriptions
     draw, and the list scrolls, as it does in the stock game for a Game Pak's items.
+- **Happiness** is a field beside the level (`LV 100  HAPPINESS 128`), 0 to 255 in
+  steps of 1 or 25. It is the record's byte `0x1C`, and all it does in this game is set
+  the power of Return and Frustration; see "Pokémon helpers". On the field the title row
+  shows both powers in place of the usual traits, and the move list shows them too.
+  - Checked: both ends, both step sizes, and nothing else in the record changing; an
+    Abra set to 0 keeps it in the party, in battle and in a registered team after a
+    reset.
 - **The stock cursors.** The editor borrows what the game's own lists and menus draw:
   the brackets that breathe around the chosen entry mark the field the cursor is on
   (gold, and green while a number is grabbed), and the move list has the scroll bar
@@ -455,6 +462,13 @@ within `func_8130CEAC`'s count. C buttons open the "check TM" popup for a move.
 | `func_816087C8(mon)` | gender symbol as a string, empty when genderless (fragment 11) |
 | `func_800226C0(id)` | play a sound: 1 cursor, 2 confirm, 3 cancel, 5 error |
 | `func_80051830(mon, saved)` / `func_80051864` | unpack / pack a registered-team entry |
+
+Happiness (`record + 0x1C`) is read by the battle code for two moves only
+(`fragment79_393CA0.c`): Return's power is `happiness * 10 / 25` and Frustration's
+`(255 - happiness) * 10 / 25`, 0 to 102 either way. Their power in the move table is 1.
+In the Poké Cup table 232 of the 246 rentals have 128 (power 51 for both). The other 14
+run from 40 to 210: some carry one of the two moves (Pidgey 210 with Return, Magnemite
+40 with Frustration), others neither.
 
 After editing a record the sequence is: set experience with `func_80061B88` if the level
 changed, call `func_800619E8`, then `func_80061F44`.

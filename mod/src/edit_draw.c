@@ -9,6 +9,10 @@
 
 #define MOVE_X 26
 #define PP_X 216
+/* The level's row holds two fields: the level's number ends here, and happiness starts
+ * far enough on for either field's brackets to miss the other's text. */
+#define LEVEL_X (MOVE_X + 50)
+#define HAPPINESS_X (LEVEL_X + 2 * FIELD_MARGIN)
 #define STAT_NAME_X 262
 #define DV_X 410
 #define STAT_EXP_X 516
@@ -72,7 +76,8 @@ static char sMoves[] = "MOVES";
 static char sPP[] = "PP";
 static char sDV[] = "DV";
 static char sStatExp[] = "STAT EXP";
-static char sLevel[] = "LEVEL";
+static char sLevel[] = "LV";
+static char sHappiness[] = "HAPPINESS";
 static char sAdd[] = "(add)";
 static char sRemove[] = "(remove)";
 static char sPickMove[] = "PICK MOVE";
@@ -169,10 +174,23 @@ static void Edit_DrawNumber(s32 x, s32 y, s32 value) {
 /* What the DVs decide besides the stats, each shown only when it applies: Hidden Power's
  * type and power if the Pokemon knows the move, Unown's letter, and shininess. Gender
  * goes beside the name, as in the stock panel. */
-static void Edit_DrawTraits(Pokemon *mon, s32 x, s32 y) {
+static void Edit_DrawTraits(EditState *state, Pokemon *mon, s32 x, s32 y) {
     char buffer[12];
     char letter[2];
 
+    /* On the happiness field they make way for what happiness decides: the power of
+     * Return and of Frustration. */
+    if (!state->onName && state->col == COL_HAPPINESS) {
+        Edit_White();
+        x = Edit_DrawRight(x, y, Edit_Digits(&buffer[11], Edit_MovePower(mon, MOVE_FRUSTRATION)));
+        Edit_Heading();
+        x = Edit_DrawRight(x - WORD_GAP, y, Move_Name(MOVE_FRUSTRATION)) - TRAIT_GAP;
+        Edit_White();
+        x = Edit_DrawRight(x, y, Edit_Digits(&buffer[11], Edit_MovePower(mon, MOVE_RETURN)));
+        Edit_Heading();
+        Edit_DrawRight(x - WORD_GAP, y, Move_Name(MOVE_RETURN));
+        return;
+    }
     if (Edit_Knows(mon, MOVE_HIDDEN_POWER, -1)) {
         Edit_White();
         x = Edit_DrawRight(x, y, Edit_Digits(&buffer[11], Edit_MovePower(mon, MOVE_HIDDEN_POWER)));
@@ -215,7 +233,7 @@ static void Edit_DrawFields(EditState *state, Pokemon *mon) {
     Text_Draw(x + NAME_X, y + TITLE_Y, mon->nickname);
     Edit_White();
     Text_Draw(x + NAME_X + Text_Width(MENU_FONT, 1, mon->nickname), y + TITLE_Y, Pokemon_GenderSymbol(mon));
-    Edit_DrawTraits(mon, x + TRAIT_X, y + TITLE_Y);
+    Edit_DrawTraits(state, mon, x + TRAIT_X, y + TITLE_Y);
 
     for (row = 0; row < NUM_ROWS; row++) {
         rowY = y + ROW_Y + ROW_SPACING * row;
@@ -223,7 +241,10 @@ static void Edit_DrawFields(EditState *state, Pokemon *mon) {
         Edit_FieldColor(state, COL_MOVES, row);
         if (row == ROW_LEVEL) {
             Text_Draw(x + MOVE_X, rowY, sLevel);
-            Edit_DrawNumber(x + PP_X, rowY, mon->level);
+            Edit_DrawNumber(x + LEVEL_X, rowY, mon->level);
+            Edit_FieldColor(state, COL_HAPPINESS, row);
+            Text_Draw(x + HAPPINESS_X, rowY, sHappiness);
+            Edit_DrawNumber(x + PP_X, rowY, mon->happiness);
         } else if (row < moves) {
             Text_Draw(x + MOVE_X, rowY, Move_Name(mon->moves[row]));
             Edit_DrawNumber(x + PP_X, rowY, mon->pp[row] & 0x3F);
@@ -262,7 +283,10 @@ static void Edit_DrawFieldCursor(EditState *state, Pokemon *mon) {
         y += ROW_Y + ROW_SPACING * state->row;
         if (state->col == COL_MOVES) {
             x += MOVE_X;
-            width = PP_X - MOVE_X;
+            width = (state->row == ROW_LEVEL ? LEVEL_X : PP_X) - MOVE_X;
+        } else if (state->col == COL_HAPPINESS) {
+            x += HAPPINESS_X;
+            width = PP_X - HAPPINESS_X;
         } else if (state->col == COL_DV) {
             x += DV_X - DV_WIDTH;
             width = DV_WIDTH;
@@ -332,7 +356,7 @@ static void Edit_DrawMoveList(EditState *state, Pokemon *mon) {
         }
         Text_Draw(x + LIST_NAME_X, rowY, Move_Name(move));
         Text_Draw(x + LIST_TYPE_X, rowY, Type_Name(Edit_MoveType(mon, move)));
-        if (Edit_MovePower(mon, move) > 1) {
+        if (Edit_MovePower(mon, move) > 1 || move == MOVE_RETURN || move == MOVE_FRUSTRATION) {
             Edit_DrawNumber(x + LIST_POWER_X, rowY, Edit_MovePower(mon, move));
         } else {
             Edit_DrawRight(x + LIST_POWER_X, rowY, sDash);
