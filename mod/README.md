@@ -43,9 +43,17 @@ On any screen where Pokémon are entered (Free Battle, registering a team), go t
 rental tab (**R**), press A on a rental, and choose **EDIT** under Yes / No / ITEM. In a
 two-player battle each player edits in turn with their own controller.
 
-Once your team is chosen, Start brings up the usual menu (OK, OK to Register, ...) with
-one more entry, **Change Trainer**. It opens a window with three things to change, Up and
-Down moving between them:
+A rental that is already on your team can be edited where it is, without taking it off
+the team and choosing it again. Once your team is chosen, Start brings up the usual menu
+(OK, OK to Register, ...), which has two more entries. **Edit POKéMON** puts the cursor
+in the team's box: A on a rental opens the editor on it, B closes the editor for the next
+one, and B again goes back to the menu. The game's own **Reselect some POKéMON** leads to
+the same place by another road: its EXCHANGE menu has **EDIT** under Yes / No. Either
+way the edits are made to the Pokémon on the team, and everything changed before it was
+entered is still there.
+
+The other new entry is **Change Trainer**. It opens a window with three things to change,
+Up and Down moving between them:
 
 - your **picture**: Left and Right step through every trainer in the game. The first one
   in the ring is the game's own choice for you.
@@ -67,7 +75,7 @@ list has a scroll bar, and a hand points at the move the cursor is on.
 |---|---|---|
 | Moving around | D-pad | move between moves, level, happiness, DVs and Stat Exp; Up from the top row reaches the name |
 | | A | change the field under the cursor |
-| | B | close the editor, back to Yes / No |
+| | B | close the editor, back to Yes / No, or to the team's box after Edit POKéMON |
 | On a number | Up / Down | one step (hold to repeat) |
 | | Left / Right | a bigger step: 4 for DVs, 10 for level, 25 for happiness, 8 steps for Stat Exp |
 | | L / R | lowest / highest value |
@@ -96,6 +104,9 @@ What can be changed:
   twice. PP is set to the new move's full PP.
 - **Level**, within the range of the rules in force (and never below 2). The game's own
   checks on a team, such as the Poké Cup's level total, still apply when you enter it.
+  For a Pokémon already on the team, the level stops where the team would go past that
+  total, because the game's answer to a team past it is to have you choose its last
+  Pokémon again.
 - **Happiness**, 0–255, beside the level. It decides the power of Return, which grows
   with it, and of Frustration, which grows without it, each up to 102. While the cursor
   is on it the top line shows both, and the move list shows them for those two moves.
@@ -122,6 +133,11 @@ they last until the console is switched off.
 - An edit belongs to the Pokémon's entry in the list. If you scroll the list a long way
   before choosing Yes, the entry is rebuilt from the rental table and the edit is gone.
   Edit, then enter.
+- The team's copy and the list's are two. An edit made on the team is not in the list:
+  exchange that Pokémon away and choose it again, and it comes back as the list has it.
+- Edit POKéMON needs the team's menu, which under rules that want a full team (the Poké
+  Cup, for one) only comes up once six are chosen. Under Anything Goes, Start brings it
+  up from the first.
 - Outside the editor the game labels Hidden Power as Normal, as the original does.
 - Moves are checked one at a time. Combinations that cannot exist on one Pokémon in the
   Game Boy games are not rejected.
@@ -129,13 +145,15 @@ they last until the console is switched off.
 - Change Trainer has only been tried in Free Battle. A typed name shows there; the other
   modes name the player in code this does not change.
 - A chosen picture is always the trainer's first expression.
-- Only rentals get EDIT, not Pokémon read from a Game Pak.
+- Only rentals get EDIT, not Pokémon read from a Game Pak. On a team that has both, A on
+  one of the others after Edit POKéMON does nothing but sound the error; that has not
+  been tried, there being no Game Pak in the tests.
 - USA version only.
 
 ## What has been tested
 
 Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts. Most of
-it is now an automated suite (`mod/tests/emu`, 39 scenarios) that plays the editor and
+it is now an automated suite (`mod/tests/emu`, 45 scenarios) that plays the editor and
 checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 
 - Moves, level, happiness, DVs and Stat Exp edited and carried into a battle.
@@ -144,6 +162,11 @@ checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
   read back byte for byte from a registered team after a console reset. The ten-character
   limit, an empty name, backing out, and the cursor wrapping at every edge.
 - A registered team reloaded after a console reset with its edits intact.
+- A rental edited on the team, by Edit POKéMON and by EDIT under EXCHANGE: the edits made
+  before it was entered kept and added to, and all of it carried into a battle; the
+  second of two edited with the first untouched; the computer's team; a second player's,
+  with controller 2. Under Poké Cup rules, the level of one of the team held to 50–55 and
+  stopped at the team's level total.
 - Change Trainer: every picture in the window, and a chosen picture, name and title where
   the two sides are set against each other, on the order screen and on the result after
   a battle; a name taken back; a name still there on the next visit to the entry screen;

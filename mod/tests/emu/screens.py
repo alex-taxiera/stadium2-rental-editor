@@ -26,8 +26,10 @@ WINDOW = (56, 77, 583, 244)
 SIDEBAR = (456, 264, 584, 391)
 # The inside of the trainer window (mod/src/trainer.c).
 TRAINER = (118, 263, 519, 440)
-# The team menu's entries, in the same place.
-TEAM_MENU = (212, 263, 425, 440)
+# The team menu's entries, in the same place: the stock five and the mod's two.
+TEAM_MENU = (212, 263, 425, 460)
+# The inside of the box over the list that asks which of the team is meant.
+TEAM_QUESTION = (190, 220, 448, 260)
 # Player 1's picture where the two sides are set against each other before a battle,
 # and the title and name under it.
 VERSUS = (70, 60, 160, 150)

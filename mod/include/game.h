@@ -164,7 +164,9 @@ typedef struct DetailPanel {
     /* 0x04 */ s32 confirmSound;
     /* 0x08 */ s16 x;
     /* 0x0A */ s16 y;
-    /* 0x0C */ u8 unk0C[0x28];
+    /* 0x0C */ u8 unk0C[0x20];
+    /* 0x2C */ f32 opening; /* how far open the menu box is, 0 to 1 */
+    /* 0x30 */ u8 unk30[4];
     /* 0x34 */ u8 state;
     /* 0x35 */ u8 mode;
     /* 0x36 */ s8 cursor;
@@ -181,8 +183,10 @@ typedef struct DetailPanel {
 
 #define PANEL_CLOSED 0
 #define PANEL_MENU 1
+#define PANEL_CLOSING 3 /* after a choice; the result is the cursor's row plus one */
 #define PANEL_MODE_ENTER 0
-#define PANEL_MODE_EXCHANGE 1
+#define PANEL_MODE_EXCHANGE 1 /* on a Pokemon already on the team: Yes to pick another in its place */
+#define ENTER_MENU_NO 1
 
 /* Number of entries in the ENTER menu: 2, or 3 when items are allowed. */
 s32 func_8130CEAC(DetailPanel *panel);
@@ -305,11 +309,24 @@ s32 func_81311C70(Menu *menu, MenuDef *def, s32 controller, s32 textArg);
 
 #define ENTRY_STATE_PARTY 0x15370 /* in the picker's state: the team being chosen */
 #define PARTY_NAME 0x11
+#define PARTY_CELLS 0x20 /* its Pokemon, a ListCell each; an empty place has species 0 */
+#define PARTY_SIZE 6
+
+/* What the team menu answers for "Reselect some": the cursor goes to the team's box,
+ * where A on a Pokemon opens the detail panel on it, to EXCHANGE. */
+#define TEAM_MENU_RESELECT_SOME 4
+
+/* The lowest that three of a team's levels come to, which is what the rules' limit on
+ * levels together is held against; 600 for a team of fewer than three. A team over the
+ * limit is not let back to its menu: the game has its last Pokemon chosen again. */
+s32 func_8160A9F0(u8 *party);
+#define Party_LowestLevelTotal func_8160A9F0
 
 char *func_8004C874(s32 bank, s32 id); /* a text of a loaded bank */
 #define Text_Lookup func_8004C874
 #define ENTRY_TEXT_BANK 0xF
 #define ENTRY_TEXT_PLAYER 0x62 /* "1P", then 2P to 4P */
+#define ENTRY_TEXT_EXCHANGE_WHICH 0x1F /* "Exchange which POKeMON?", over the team's box */
 
 void func_80003F74(void *dst, u32 romStart, u32 romEnd, s32 arg3); /* reads the ROM, and waits for it */
 #define Rom_Read func_80003F74

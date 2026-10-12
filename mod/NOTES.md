@@ -111,11 +111,35 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
     shares; the name is not (see "Trainer names and titles").
   - After the keyboard the window is still on the name, where A types again: keeping
     takes a step up or down first. The hint line under the window says which A it is.
+- **Editing one of the team.** A rental already entered is edited where it is, in the
+  team's box, so nothing has to be taken off the team and chosen again. Two ways in, both
+  from the menu a chosen team gets: the stock **Reselect some POKéMON**, whose EXCHANGE
+  menu (Yes / No) has **EDIT** as a third row; and a new entry, **Edit POKéMON**, which
+  is answered to the game as Reselect some but opens the editor at once on whichever of
+  the team A is pressed on, and closes back to the team's box. No new hook: the EXCHANGE
+  menu is the ENTER menu's code in another mode, and a place in the team's box is a cell
+  like the list's. See "The team's box".
+  - Checked: EDIT under Yes / No, the panel's record being the team's own; B back on No,
+    then No and B back to the menu; Edit POKéMON straight to the editor and B straight
+    back, twice over, and Reselect some still giving its menu afterwards; edits made
+    before entering kept, added to on the team, and carried into a battle; the second of
+    two edited and the first untouched; a rename's tint reaching the icon in the team's
+    box, and the box repainted when the editor closes; the question over the box reading
+    "Edit which POKéMON?"; the COM's team; player 2 with controller 2 while controller 1
+    does nothing; the 4 MB build.
+  - Checked under Poké Cup rules, with six entered: the level of one of the team goes
+    from 50 to 55 and no further; with four at 55 a fifth is refused at every level above
+    50 and the team comes back to its menu whole; with one of the four back at 50 it is
+    allowed.
+  - Not tried: a team with a Game Pak's Pokémon on it, where Edit POKéMON should sound
+    the error and stay in the box.
 - Nothing has been run on standalone ares or hardware yet. BizHawk's Ares64 core is the
   same emulation core as standalone ares.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
-  before entering it loses the edit. The stock detail panel and the battle menu label
-  Hidden Power as Normal, as they do in the unmodified game.
+  before entering it loses the edit. An edit made on the team lives in the team's cell
+  only: exchanged away and chosen again, the Pokémon is the list's copy. The stock detail
+  panel and the battle menu label Hidden Power as Normal, as they do in the unmodified
+  game.
 
 ## Building
 
@@ -454,20 +478,76 @@ and at runtime. See `Menu`, `MenuDef` and `MenuEntry` in `mod/include/game.h`.
   from OK, OK to Register, Reselect some, Reselect all and Change Item, text bank 0xF
   0x1A–0x1E, results 0–6). It acts on the result through a jump table and ignores any
   other value.
-- **Change Trainer** is added by handing the menu a copy of the definition with one more
-  entry (`Trainer_ExtendMenu`), result `0x7F`. `func_81303648` runs from the mod (a
-  `detour`, for its jump table) with its call of `func_81311C70` pointed at
-  `Mod_PollTeamMenu`; `Mod_DrawMenuRow` draws the entry's text, which no bank has, and
-  the stock code does the rest: box size, cursor, pointing hand. The entry's own text id
-  is the first stock entry's, which is only measured. Not on the COM's team's menu:
-  `settings + 0x900 + side` is the side's controller port, negative for the COM, and
-  `state + 0x1A142` the side whose team is being chosen.
+- **The mod's entries** are added by handing the menu a copy of the definition with one
+  or two more (`Trainer_ExtendMenu`): **Edit POKéMON**, result `0x7E`, when the team has
+  a rental on it, and **Change Trainer**, result `0x7F`. `func_81303648` runs from the
+  mod (a `detour`, for its jump table) with its call of `func_81311C70` pointed at
+  `Mod_PollTeamMenu`; `Mod_DrawMenuRow` draws the entries' texts, which no bank has, and
+  the stock code does the rest: box size, cursor, pointing hand. An entry's own text id
+  is the first stock entry's, which is only measured. Change Trainer is not on the COM's
+  team's menu: `settings + 0x900 + side` is the side's controller port, negative for the
+  COM, and `state + 0x1A142` the side whose team is being chosen. The copy is made again
+  when the stock definition or the set of entries changes. With seven rows the box ends
+  about ten pixels above the bottom of the screen.
+- **A measurement in the middle of drawing** can leave the text undrawn:
+  `func_80049148` between `func_800496A4` and `func_800495BC` did, with the large font
+  (0x10) of the question over the team's box. Measure first. (The editor measures as it
+  draws all the time, but in the one font it draws with.)
 - While the trainer window is up the menu is closed and `Mod_PollTeamMenu` answers 0,
   "still open", without asking it; the frame after the window closes, the stock code's
   next call opens the menu again. The screen still calls `func_81311650` for the closed
   menu every frame, which is where the window is drawn from (`Mod_DrawMenu`), or the
   keyboard while a name is typed. The two are different regions, being in different
   places on the screen (see "Redrawing").
+
+### The team's box
+
+The team being chosen is an object at `state + 0x15370` (`fragment14_FAD40.c`; the same
+one for each side in turn, the COM's included). **[C]** at runtime for the states the
+tests pass through, **[I]** from the assembly for the rest.
+
+- `+0x08` the cursor's place (s8), `+0x0A` the controller, `+0x20 + n * 0xCE8` its six
+  cells, `+0x4DA0` the picker's state, `+0x4DAC` set to have the box repainted, `+0x4DBD`
+  what it is doing. The box is three places wide and two high, and the cursor does not
+  wrap.
+- `func_81303EF4` runs it each frame, by a jump table on `+0x4DBD`:
+
+  | State | Handler | |
+  |---|---|---|
+  | 2, 3 | `func_813032D0`, `func_81303364` | opening, closing |
+  | 4 | `func_81303648` | the team's menu is up |
+  | 0xC | `func_813032B0` | handing the cursor to the list |
+  | 0xD | none | the list has it; the place being filled reads "Sixth POKéMON" and the like |
+  | 0x11 | `func_81303A88` | "Reselect some": the cursor is in the box, under "Exchange which POKéMON?" (text 0x1F). A on a filled place → 9; B → 4, or 0xC with the cursor on the last place when the team is over the level total |
+  | 9 | `func_81303D60` | opens the detail panel on the place's cell, mode 1 → 0xE |
+  | 0xE | `func_813033DC` | waits for the panel: Yes → 0xD, to choose another for that place; No → 0x11 |
+  | 0x12, 0xA | `func_813037F0`, `func_813038D0` | Change Item: the item list and the panel in mode 3, place by place |
+  | 7, 8 | `func_81303E20`, `func_81303EA8` | the message that the level total is too high, then 0x11 |
+  | 0x10, 5, 6 | `func_81303CA0`, `func_81303BF4`, `func_81303D04` | OK with a check, and its messages |
+
+- **What the list asks of it**: A on a Pokémon ends in `func_81304444(party, cell, item)`,
+  which copies the cell to the cursor's place and, with the team full, goes to 4 (or 7);
+  Start is `func_813042E4`, which goes to 4 only if the rules' flag word has bit 31 set
+  (Anything Goes does; the Poké Cup, `0x0FFF0000`, does not, so its menu waits for six);
+  B is `func_8130437C`, which takes the last Pokémon off again, or goes to 0x11 if the
+  cursor's place is filled.
+- **The level total** (`rules + 0x38`; 155 for the Poké Cup) is held against
+  `func_8160A9F0(party)`: the lowest that any three of the team's levels come to, 600
+  with fewer than three (`func_81303A38`). A team over it is not let back to its menu.
+  B in the box then sends the cursor to the list with the last place open again, its
+  Pokémon gone. The editor would walk a team into that with a level, so for one of the
+  team `Edit_SetLevel` stops at the highest level that keeps the team within the total.
+- **The mod's editor on one of the team** needs nothing of all this changed. The panel
+  in mode 1 is the ENTER menu's code with EXCHANGE for a title and no ITEM row, and its
+  record is the place's cell, so `Edit_CanEdit` takes mode 1 as well and the icon in the
+  box is reloaded as the list's is. Leaving the editor puts the menu's cursor on No.
+- **Edit POKéMON** is `Mod_PollTeamMenu` answering 4, Reselect some, with
+  `EditState.pending` set. `Mod_EnterMenuInput` then opens the editor on the first panel
+  that comes up in mode 1 (`EditState.direct`), and B in the editor closes the panel as
+  B on its menu would (`Edit_ClosePanel`: cursor on No, state 3, `+0x2C` to 1.0), which
+  0xE takes for No. `pending` is cleared when the team's menu is asked again or a panel
+  comes up in any other mode. While it is set, `Mod_DrawMenuRow` draws the question over
+  the box as "Edit which POKéMON?", in the middle of a box measured for the stock one.
 
 ### Redrawing
 
@@ -750,7 +830,8 @@ build tools or to the commit of the decompilation the mod sits on.
    - `test_editor.py`: opening and closing, DVs, Stat Exp, level, the move list, shiny,
      Hidden Power, the keyboard.
    - `test_teams.py`: the edited record in the party and in battle; a registered team
-     after a power cycle; Poké Cup's level range; two players.
+     after a power cycle; the editor on one of the team, by both ways in; Poké Cup's
+     level range and level total; two players.
    - `test_items.py`: what the ITEM list offers, and an item from it reaching the party.
    - `test_trainer.py`: Change Trainer, its window and keyboard, and the picture, name
      and title on the screens up to and after a battle, for one player and for two.

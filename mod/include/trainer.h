@@ -3,10 +3,16 @@
 
 #include "game.h"
 
-/* The team menu with "Change Trainer" added is a copy of the stock one, kept here. */
+/* The team menu with "Edit POKeMON" and "Change Trainer" added is a copy of the stock
+ * one, kept here. */
 #define TEAM_MENU_MAX_ENTRIES 8
-/* The new entry's result: one the stock code that reads the menu does nothing with. */
+/* The new entries' results: ones the stock code that reads the menu does nothing with. */
 #define MENU_RESULT_TRAINER 0x7F
+#define MENU_RESULT_EDIT 0x7E
+
+/* Which of the two a menu has been given. */
+#define TEAM_MENU_EDIT 1
+#define TEAM_MENU_TRAINER 2
 
 /* The trainer window's rows. */
 enum { TRAINER_PICTURE, TRAINER_NAME, TRAINER_TITLE, NUM_TRAINER_ROWS };
@@ -23,7 +29,7 @@ typedef struct TrainerState {
     /* 0x06 */ u16 bracketPhase;
     /* 0x08 */ Menu *owner;     /* the menu the window stands in for */
     /* 0x0C */ MenuDef *source; /* the stock definition `menu` was copied from */
-    /* 0x10 */ s32 minWidth;    /* of the menu's box, for the new entry to fit */
+    /* 0x10 */ s32 minWidth;    /* of the menu's box, for the new entries to fit */
     /* 0x14 */ MenuDef menu;
     /* 0x38 */ MenuEntry entries[TEAM_MENU_MAX_ENTRIES];
     /* 0x78 */ u32 header[4]; /* a few words of a table, as read from the ROM */
@@ -33,7 +39,8 @@ typedef struct TrainerState {
     /* 0x2092 */ u8 nameChanged; /* a name was typed, so A keeps it */
     /* 0x2093 */ u8 titleStart;  /* where in `titleText` the title begins: a read starts on an even address */
     /* 0x2094 */ char name[TRAINER_NAME_BYTES]; /* empty for the name the game would give */
-    /* 0x209C */ u8 unk209C[4];
+    /* 0x209C */ u8 extras;      /* which entries `menu` was given: TEAM_MENU_EDIT, TEAM_MENU_TRAINER */
+    /* 0x209D */ u8 unk209D[3];
     /* 0x20A0 */ char titleText[TRAINER_TITLE_BYTES];
 } TrainerState; /* size = 0x20C0 */
 
