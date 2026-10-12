@@ -52,8 +52,14 @@ the same place by another road: its EXCHANGE menu has **EDIT** under Yes / No. E
 way the edits are made to the Pokémon on the team, and everything changed before it was
 entered is still there.
 
+| | |
+|---|---|
+| ![The team's menu, with Edit POKéMON and Change Trainer](images/team_menu.png) | ![The cursor in the team's box, under "Edit which POKéMON?"](images/team.png) |
+
 The other new entry is **Change Trainer**. It opens a window with three things to change,
 Up and Down moving between them:
+
+![The trainer window: a picture, the name ASH and the title GYM LEADER](images/trainer.png)
 
 - your **picture**: Left and Right step through every trainer in the game. The first one
   in the ring is the game's own choice for you.

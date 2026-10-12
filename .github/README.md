@@ -2,15 +2,21 @@
 
 A patch for Pokémon Stadium 2 (USA) that adds an **EDIT** entry to the menu shown when
 you pick a rental Pokémon. It opens an editor for the rental's nickname, moves, level,
-DVs and Stat Exp, limited to what the Game Boy games allow, and the edited Pokémon is
-what enters the battle or the registered team.
+happiness, DVs and Stat Exp, limited to what the Game Boy games allow, and the edited
+Pokémon is what enters the battle or the registered team. A rental already on your team
+can be edited again where it is, and you can choose your own trainer picture, name and
+title.
 
 | | |
 |---|---|
-| ![EDIT under Yes, No and ITEM in the ENTER menu](../mod/images/menu.png) | ![The editor: moves, level, DVs and Stat Exp, with SHINY shown](../mod/images/editor.png) |
-| **EDIT** joins Yes / No / ITEM on any rental. | Moves, level, DVs and Stat Exp. The game's own panel below shows the result as you go. |
+| ![EDIT under Yes, No and ITEM in the ENTER menu](../mod/images/menu.png) | ![The editor: moves, level, happiness, DVs and Stat Exp, with SHINY shown](../mod/images/editor.png) |
+| **EDIT** joins Yes / No / ITEM on any rental. | Moves, level, happiness, DVs and Stat Exp. The game's own panel below shows the result as you go. |
 | ![The move list, with Hidden Power's type and power](../mod/images/moves.png) | ![The nickname keyboard](../mod/images/keyboard.png) |
 | Every move the species can legally have, with type, power, accuracy and PP. | Nicknames, on a keyboard laid out like the Game Boy's. |
+| ![The team's menu, with Edit POKéMON and Change Trainer under the game's own entries](../mod/images/team_menu.png) | ![The cursor in the team's box, under "Edit which POKéMON?"](../mod/images/team.png) |
+| Start on a chosen team: **Edit POKéMON** and **Change Trainer** join the game's own entries. | Edit POKéMON opens the editor on a rental that is already on the team. |
+| ![The trainer window: a picture, the name ASH and the title GYM LEADER](../mod/images/trainer.png) | ![Before a battle: the player as GYM LEADER ASH](../mod/images/versus.png) |
+| Change Trainer: any of the game's trainer pictures, a name and a title. | They are yours on the screens before and after a battle. |
 
 ## Getting it
 
@@ -20,7 +26,8 @@ what enters the battle or the registered team.
    `d8343e69a7dc63b869cf6361d87cde64444281d3`) with any BPS patcher, such as Floating IPS
    or Rom Patcher JS.
 3. In the game, go to the rental tab on any screen where Pokémon are entered, press A on
-   a rental and choose **EDIT**.
+   a rental and choose **EDIT**. Once a team is chosen, Start brings up its menu, with
+   **Edit POKéMON** and **Change Trainer**.
 
 The patch holds only the changes, not the game: no ROM is in this repository or in its
 releases. The [user guide](../mod/README.md) has the controls, what exactly can be
@@ -32,10 +39,20 @@ changed, the known limits and a checklist for trying it on a console.
 - **Moves**: any move the species or an earlier evolution learns in Red, Blue, Yellow,
   Gold, Silver or Crystal by level, TM/HM, tutor or breeding.
 - **Level**, within the range of the rules in force.
+- **Happiness**, which decides the power of Return and Frustration.
 - **DVs** and **Stat Exp**, with the stats recalculated as you change them. The editor
   shows what the DVs decide besides stats: gender, shininess, Unown's letter and Hidden
   Power's type and power.
 - **Nickname**, up to 10 characters.
+- **Held item**, through the game's own ITEM entry, whose list now has every item worth
+  holding in a battle: 42, where the original offers six berries.
+
+A rental can be edited when it is chosen and again once it is on the team, without
+taking it off: nothing changed earlier is lost.
+
+**Change Trainer** is separate from the editor: your picture from the game's 67, a name
+in place of 1P, and a title in place of POKéMON TRAINER, until the console is switched
+off.
 
 It works in Free Battle and when registering a team, for either player, with or without
 an Expansion Pak, and a registered team keeps its edits. The save format is untouched.
