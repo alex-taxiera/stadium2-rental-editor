@@ -159,7 +159,10 @@ class TrainerTest(h.EmulatorTest):
         self.do(*TO_ORDER_SCREEN, *TO_RESULT)
         self.assertEqual(self.s.intro()[0], RESULT)
         self.assertEqual(self.s.battle_names(), [b"ASH", b"CAL"])
-        screens.check(self, "result_named", self.s.shot("result_named"), screens.VERSUS_LABEL)
+        # The result looks its title up for itself, and only the picture says which it
+        # found. After a battle that is the picture as the game drew it; see screens.py.
+        shot = self.s.shot("result_named")
+        screens.check_drawn(self, "result_named", self.s.drawn(screens.VERSUS_LABEL), shot)
 
     def test_a_name_can_be_taken_back(self):
         self.start(*h.OPEN_TRAINER, *TYPE_ASH, *press(DOWN), *press("A", 40))
