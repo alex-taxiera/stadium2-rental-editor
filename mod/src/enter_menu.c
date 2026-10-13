@@ -6,6 +6,16 @@ static char sEditLabel[] = "EDIT";
 #define EDIT_REGION_KEY ((s32)Edit_GetState())
 
 /**
+ * Runs in place of func_8130251C, the entry screen's setup, as the mod is loaded. This is
+ * the last moment the main pool has room to give, so the art the mod uses that the screen
+ * does not load itself is loaded here.
+ */
+void Mod_EntrySetup(void) {
+    Image_LoadBank(ARROW_IMAGES);
+    orig_func_8130251C();
+}
+
+/**
  * Replaces func_8130DA04, which draws the ENTER menu (Yes / No / ITEM) beside the
  * detail panel. Adds an EDIT entry below the stock ones for rental Pokemon, and
  * draws the editor while it is open.
@@ -38,6 +48,21 @@ void Mod_DrawEnterMenu(DetailPanel *panel, void *ctx) {
     Text_Draw(panel->x + ENTER_MENU_X + ENTER_MENU_ITEM_X,
               panel->y + ENTER_MENU_ITEM_Y + ENTER_MENU_ITEM_SPACING * row, sEditLabel);
     Text_End();
+}
+
+/**
+ * Replaces func_8130D1FC, which works out the ENTER menu's box as it opens and closes,
+ * both to draw it and to register the screen region it covers, and makes it higher for
+ * the ITEM list's "to quit". While the editor is open the box holds only its key hints,
+ * so it is made lower, in step with how far open it is.
+ */
+f32 Mod_EnterMenuRect(DetailPanel *panel, Rect *rect) {
+    f32 opening = orig_func_8130D1FC(panel, rect);
+
+    if (Edit_IsActive(panel)) {
+        rect->height = rect->height * EDIT_MENU_HEIGHT / ENTER_MENU_HEIGHT;
+    }
+    return opening;
 }
 
 /**

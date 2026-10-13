@@ -12,6 +12,9 @@ from harness import DOWN, RIGHT, UP, press, presses
 # out of this, with the 16 bytes the pool puts in front of every block.
 STOCK_PICKER_FREE = 0x2C780
 BLOCK_HEADER = 0x10
+# My Room's arrows (image bank 0xEA, unpacked), which the mod loads along with itself for
+# the trainer window.
+ARROWS = 0x660
 # Keeps the lowest the pool's free count has been, checked every frame.
 WATCH = ('eval pool_low = 0x7FFFFFFF; event.onframeend(function() '
          f'local free = memory.read_u32_be(0x{h.POOL_FREE - 0x80000000:X}, "RDRAM"); '
@@ -27,7 +30,7 @@ class WithoutExpansionPakTest(h.EmulatorTest):
         self.start()
         self.assertEqual(self.s.u32(h.RAM_SIZE), 0x400000)
         free = self.s.u32(h.POOL_FREE)
-        self.assertEqual(free, STOCK_PICKER_FREE - self.s.mod_size - BLOCK_HEADER)
+        self.assertEqual(free, STOCK_PICKER_FREE - (self.s.mod_size + BLOCK_HEADER) - (ARROWS + BLOCK_HEADER))
 
         # Open a rental and use every part of the editor: a DV change that reloads the
         # model, the move list, and the keyboard.

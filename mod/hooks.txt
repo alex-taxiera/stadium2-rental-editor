@@ -4,11 +4,15 @@
 
 # Fragment 14's setup, run once when the entry screen starts. Loading the mod here
 # puts it in memory before any other hook can fire, and before the screen claims
-# the rest of the main pool for itself.
-boot    func_8130251C   orig_func_8130251C
+# the rest of the main pool for itself, which is also why the mod loads what it
+# needs of the game's art here.
+boot    func_8130251C   Mod_EntrySetup
 
 # Draws the ENTER / EXCHANGE menu beside the detail panel.
 jump    func_8130DA04   Mod_DrawEnterMenu
+
+# Works out the ENTER menu's box, for drawing it and for the screen region it covers.
+jump    func_8130D1FC   Mod_EnterMenuRect
 
 # Handles input while the ENTER menu is open.
 jump    func_8130EC9C   Mod_EnterMenuInput

@@ -47,7 +47,9 @@ class EditorTest(h.EmulatorTest):
         panel = self.s.panel(state)
         self.assertEqual((state.mode, state.col, state.row, state.on_name), (EditState.FIELDS, 0, 0, 0))
         self.assertEqual((panel.state, panel.mode, panel.cursor), (Panel.MENU, 0, 3))
-        screens.check(self, "fields", self.s.shot("fields"))
+        shot = self.s.shot("fields")
+        screens.check(self, "fields", shot)
+        screens.check(self, "hints_fields", shot, screens.SIDEBAR)
 
         self.do(*press("B", 20))
         state = self.s.edit_state()
@@ -63,6 +65,7 @@ class EditorTest(h.EmulatorTest):
         self.start(*h.OPEN_EDITOR, *press(RIGHT), *press("A"))
         state = self.s.edit_state()
         self.assertEqual((state.mode, state.col, state.row), (EditState.ADJUST, EditState.COL_DV, 1))
+        screens.check(self, "hints_adjust", self.s.shot("hints_adjust"), screens.SIDEBAR)
 
         # Attack: both ends, single steps, steps of four, and no step past an end.
         for button, dvs in (("R", 0xFAA9), ("L", 0x0AA9), (UP, 0x1AA9), (RIGHT, 0x5AA9), (LEFT, 0x1AA9),
@@ -212,7 +215,9 @@ class EditorTest(h.EmulatorTest):
         state = self.s.edit_state()
         self.assertEqual((state.cursor, state.top, state.scroll),
                          (state.count - 1, last_top, EditState.SCROLL_UNITS))
-        screens.check(self, "list_end", self.s.shot("list_end"))
+        shot = self.s.shot("list_end")
+        screens.check(self, "list_end", shot)
+        screens.check(self, "hints_list", shot, screens.SIDEBAR)
 
         self.do(*presses(LEFT, state.count // LIST_PAGE + 1), "wait 40")
         state = self.s.edit_state()
