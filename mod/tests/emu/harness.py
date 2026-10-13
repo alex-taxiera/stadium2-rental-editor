@@ -49,6 +49,7 @@ PARTY_MENU, PARTY_LIST, PARTY_BOX, PARTY_PANEL = 4, 0xD, 0x11, 0xE
 BATTLE_RECORD = 0x800D1C60     # player 1's first Pokemon during a battle
 POOL_FREE = 0x800CCDCC         # bytes free in the main pool
 RAM_SIZE = 0x800871F4          # D_800871F4
+VI_CURRENT = 0x800A1530        # __osViCurr: at +4 the frame buffer on screen, at +8 its mode, whose width is at +8
 MAIN_ROM, MAIN_VRAM = 0x1000, 0x80000400   # where the main segment sits in the ROM and in RAM
 
 BASE_STATS = 0x8009830B        # per species, 22 bytes: HP, Attack, Defense, Speed, Sp. Atk, Sp. Def at +0
@@ -454,6 +455,19 @@ class Session:
         """A screenshot at normal speed, so the picture is of the frame just emulated."""
         self.run("turbo off", "wait 2", f"shot {name}", "turbo on")
         return self.dir / f"{name}.png"
+
+    def drawn(self, box: tuple) -> bytes:
+        """The pixels inside box = (left, top, right, bottom) of the picture on screen as the
+        game drew it, two bytes each: from the frame buffer being shown, which the video
+        output and the emulator's noise have not touched. See screens.py."""
+        frame, mode = struct.unpack(">II", self.read(self.u32(VI_CURRENT) + 4, 8))
+        width, = struct.unpack(">I", self.read(mode + 8, 4))
+        left, top, right, bottom = box
+        if not 0 <= left < right <= width:
+            raise AssertionError(f"the picture is {width} wide, which does not hold {box}")
+        rows = self.run(*(f"read {frame + (y * width + left) * 2:08X} {(right - left) * 2}"
+                          for y in range(top, bottom)))
+        return bytes.fromhex("".join(line.split(":", 1)[1] for line in rows))
 
     def stop(self) -> None:
         self.emulator.stop()

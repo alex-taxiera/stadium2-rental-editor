@@ -7,6 +7,16 @@ recorded in screens.json. Only hashes are kept, not the screenshots.
 A failing check leaves the screenshot in .emu/test/remote for a look. Recorded hashes
 are replaced by running the tests with UPDATE_SCREENS=1, which is only right after
 looking at the screens. Standard library only.
+
+A screenshot is the emulator's picture, and its video output adds noise that goes by
+everything shown since the console was switched on. Runs are frame-exact, so the noise
+is the same every time, but only while the same pictures come on the same frames. A
+battle does not keep to that: from one build of the mod to the next its first picture
+comes a frame sooner or later (the game is back in step by the time the battle is
+left), and every screenshot after it then hashes differently while looking the same.
+So a screen after a battle is checked with check_drawn instead, which hashes the same
+rectangle of the game's own frame buffer (Session.drawn in harness.py): what the game
+drew, with no noise in it.
 """
 
 import hashlib
@@ -129,7 +139,18 @@ def recorded() -> dict:
 
 def check(test, name: str, path: Path, box: tuple = WINDOW) -> None:
     """Fails `test` unless the region of the screenshot matches the hash recorded as `name`."""
-    actual = region_hash(path, box)
+    compare(test, name, region_hash(path, box), path)
+
+
+def check_drawn(test, name: str, pixels: bytes, path: Path) -> None:
+    """Fails `test` unless `pixels`, a region of the frame buffer from Session.drawn, match
+    the hash recorded as `name`. The menus' frame buffer is 640x480 like a screenshot of
+    them, so the boxes above serve for both. `path` is a screenshot of the same moment,
+    for the look that recording a hash takes."""
+    compare(test, name, hashlib.sha1(pixels).hexdigest(), path)
+
+
+def compare(test, name: str, actual: str, path: Path) -> None:
     record = recorded()
     if UPDATE:
         record[name] = actual

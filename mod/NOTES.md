@@ -849,6 +849,23 @@ frame, so this only works because test runs are frame-exact (below). A hash ther
 also changes when the button presses leading up to its screenshot change. After looking
 at the new screenshots in `.emu/test/remote`, `UPDATE_SCREENS=1` re-records them.
 
+The noise is the emulator's video output dithering the picture (one step of a colour,
+all over the screen, the border included), from a random sequence that every frame
+shown since power-on has drawn on. A screenshot's hash therefore holds only while the
+same pictures come on the same frames, and a battle breaks that from one build of the
+mod to the next: its first picture, where the video mode goes from 640 to 320 wide, came
+on frame 6341 of the test in one build and 6342 in another, with the mod not even in
+memory by then. The game is back in step before the battle is left and the result
+appears on the same frame either way, but the sequence is a frame's worth out for good,
+so `result_named` hashed to one of two values depending on the build while looking the
+same. Waiting for the screen does not help: nothing about the game differs by then. So a
+screen after a battle is checked in the game's own frame buffer instead
+(`Session.drawn`, `screens.check_drawn`): the one being shown is `__osViCurr->framep`
+(`0x800A1530`, +4), 640x480 at 16 bits like the screenshot of a menu, and what the game
+drew there is the same in every build and on every frame. Two things found on the way:
+BizHawk's memory domain `System Bus` reads the video registers at `0x04400000`, and
+there is no `VI Register` domain on Ares64.
+
 ### Moving to a newer base
 
 The mod only depends on the decompilation for the game's symbols, the build tools, and
