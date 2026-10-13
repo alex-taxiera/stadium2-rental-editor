@@ -4,6 +4,30 @@ What changed in each release of the patch, newest first. A release's heading is 
 and the text under it is published as the release's notes; see "Releases" in
 [NOTES.md](NOTES.md).
 
+## v0.3.0
+
+The editor and the trainer window now show the game's own pictures of the buttons, in
+the places the game itself puts them, where they used to list keys in words.
+
+- **On the keyboard**, the three wide keys each show the button that does the same from
+  anywhere: R before `lower` / `UPPER`, B before `DEL`, START before `END`. The keyboard
+  for a trainer's name has them too, which had no hints at all before.
+- **In the editor**, the box beside the Pokémon says B "to quit", as the game's ITEM list
+  does, and L "to min", R "to max" while a number is being changed. It no longer lists A
+  and the Control Pad, which the cursor speaks for, and it is a smaller box.
+- **In the trainer window**, an arrow either side of the picture's number or of the title
+  shows that Left and Right step through them, and one line under them has A and B.
+
+Things to know:
+
+- No button does anything it did not do before.
+- Two shortcuts are no longer mentioned on screen: Left and Right take a bigger step on a
+  number, and turn a page of the move list. The guide has every button in a table.
+- Only rentals can be edited, as before.
+
+Tested in BizHawk with its Ares64 core only, with and without an Expansion Pak. This
+release has not been run on a console.
+
 ## v0.2.0
 
 A rental that is already on your team can now be edited where it is, and you can choose
