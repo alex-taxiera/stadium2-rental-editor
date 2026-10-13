@@ -141,8 +141,10 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
   - Not tried: a team with a Game Pak's Pokémon on it, where Edit POKéMON should sound
     the error and stay in the box.
 - An earlier build has been run on a real Nintendo 64 (reported 2026-10-12; which build,
-  the cart and whether an Expansion Pak was fitted are not recorded here). The build with
-  the editor on one of the team has not. Nothing has been run on standalone ares;
+  the cart and whether an Expansion Pak was fitted are not recorded here). So has the
+  build released as v0.4.0, which has the editor on one of the team and is the first
+  with the trainer pictures' second directory (reported 2026-10-13; what was tried, the
+  cart and the Expansion Pak are not recorded here either). Nothing has been run on standalone ares;
   BizHawk's Ares64 core is the same emulation core.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
   before entering it loses the edit. An edit made on the team lives in the team's cell
@@ -1078,8 +1080,10 @@ and whoever has the ROM attaches the patch they built:
   which gives the same bytes every time. Four are shots the emulator tests take:
   `menu` is `edit_entry`, `editor` is `fields_shiny`, `moves` is `list_hidden_power`
   and `keyboard` is `keyboard_upper`. `team_menu`, `team`, `trainer` and `versus` were
-  taken by hand in one sitting, with three rentals on the team, so that they tell one
-  story: `versus` has to show the picture, name and title that `trainer` shows being
+  taken by hand in one sitting, with three rentals on the team (Abra, Aipom and
+  Alakazam), so that they tell one story; the
+  last two were taken again for v0.4.0 by a script through the tests' harness, with the
+  same team, the tenth in the ring, ASH and GYM LEADER: `versus` has to show the picture, name and title that `trainer` shows being
   chosen (the tests' own `versus_named` keeps the default picture, and beside the
   window it looks as if the choice had not been kept). Before a release,
   reduce the tests' fresh shots the same way and compare: a picture that no longer

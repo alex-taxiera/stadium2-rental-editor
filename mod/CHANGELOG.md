@@ -4,6 +4,31 @@ What changed in each release of the patch, newest first. A release's heading is 
 and the text under it is published as the release's notes; see "Releases" in
 [NOTES.md](NOTES.md).
 
+## v0.4.0
+
+Change Trainer now has every face of every trainer, where it had one each.
+
+- **Faces.** Most of the game's trainers have two or three pictures: pleased, upset,
+  composed. In the trainer window C Left and C Right go round them, wherever the cursor
+  is, and the line under the window shows the two buttons and "Face" whenever the
+  trainer has more than one. That makes 158 pictures to choose from, where there were
+  67.
+- **A better first face.** Stepping to a trainer used to show their first picture, which
+  for most is the upset one. Each now starts on the face they would meet you with.
+- Left and Right still step through the trainers, and the name and the title are as
+  they were.
+
+Things to know:
+
+- The face you choose is the one you keep, whoever wins: it does not change after a
+  battle, as the game's own trainers' faces do.
+- As before, a picture, name and title last until the console is switched off, and
+  Change Trainer has only been tried in Free Battle.
+- Nothing else is changed, and only rentals can be edited.
+
+Tested in BizHawk with its Ares64 core, with and without an Expansion Pak, and this
+release has been run on a real Nintendo 64.
+
 ## v0.3.0
 
 The editor and the trainer window now show the game's own pictures of the buttons, in

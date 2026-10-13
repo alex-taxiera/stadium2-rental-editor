@@ -57,8 +57,8 @@ POKéMON TRAINER, until the console is switched off.
 It works in Free Battle and when registering a team, for either player, with or without
 an Expansion Pak, and a registered team keeps its edits. The save format is untouched.
 
-An earlier build has been run on a real Nintendo 64. The current release has been tested
-in BizHawk with its Ares64 core only.
+The current release has been run on a real Nintendo 64, and tested in BizHawk with its
+Ares64 core.
 
 ## This repository
 
