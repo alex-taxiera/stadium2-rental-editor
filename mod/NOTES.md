@@ -599,6 +599,73 @@ instead. The knob in the stock list eases towards its place, and the editor's do
 The font has no `<` or `>` glyphs. The ENTER box's inside is `x + 0x198`, `y + 9`,
 129 x 128, colour `#3333F8`; the editor paints its key hints there.
 
+### Button pictures and key hints
+
+The game never lists a screen's controls, and never explains A or the Control Pad. What
+it does, and so what the mod does:
+
+- **A button's picture beside the thing it acts on.** On the entry screen: L and R at the
+  ends of the list's tabs, START beside "3 POKéMON", a C direction beside each move.
+- **One line in the box it belongs to, the picture and then "to *verb*".** "to check TM"
+  and "to quit" in the ENTER menu and ITEM list (text bank 0xF, 7 and 8); "to return"
+  and "to go next" in the Academy (bank 0x38). In `func_8130DA04` the picture is at
+  `x + 0xE` and the text at `x + 0x27` of the box, the picture 4 higher than the text.
+- **One line of them along the bottom**: My Room (fragment 13, `func_8240227C`) has the
+  Control Pad with "MOVE CAMERA", A with "DECORATION" and B with "Quit".
+- **Nothing.** The game's own keyboard (fragment 36: Name Box, Write Mail, Name Rule)
+  acts on B, START and the C buttons and says so nowhere.
+
+| Bank | Images | Loaded on the entry screen |
+|---|---|---|
+| `0x33` | 24 x 24, in colour: 0 A, 1 B, 2 C, 3 C down, 4 C left, 5 C right, 6 C up, 7 START | yes (`func_81602DD8`) |
+| `0x34` | 40 x 32, grey: 0 L, 1 R; the button is 36 x 26 and the rest its shadow. `func_8160710C(x, y)` draws L and `func_816071AC` R, each setting the render mode it needs | yes |
+| `0x94` | 20 x 20: the Control Pad | no (My Room) |
+| `0x1E` | 16 x 18, to be tinted: 0 A, 1 B, 2 to 5 C down, left, right, up; 6 L and 7 R at 24 x 17; 8 not identified | no (My Room) |
+| `0x31` | 24 x 20: START again, as the order screen has it | no |
+| `0xEA` | 16 x 18, grey: 0 down, 1 left, 2 right, 3 up, My Room's arrows; the arrow is 11 x 15 and the rest its shadow | no, so the mod loads it (`Mod_EntrySetup`) |
+
+A round one is drawn as the ENTER menu does: `func_8004C990(0x33, n)` for the image and
+`func_8004D19C` after `gSPDisplayList(D_80094E38)`. Only the banks the screen has loaded
+can be used; `func_8004C990` gives NULL for the rest, and `func_8004C8C0(bank)` loads
+one into the main pool, where it stays until the screen's pool state is popped. The
+entry screen takes the rest of the pool once it is set up, so the mod loads the one bank
+it adds, the arrows, from its boot hook. An image with a soft edge (the shoulder buttons,
+the arrows) wants `gDPSetRenderMode(0x0F0A7008, 0)` after `D_80094E38`, as
+`func_8160710C` sets it.
+
+Where the mod has them (`Edit_DrawSidebar`, `Edit_DrawKeyButtons`, `Trainer_DrawWindow`):
+the EDIT box says B "to quit" with the game's own text, and L "to min", R "to max" while
+a number is grabbed; the keyboard's wide keys each have the button that does the same
+from anywhere, R before `lower` / `UPPER`, B before `DEL`, START before `END`; and the
+trainer window has one line, A with "OK" (or "Type" on the name, where A opens the
+keyboard) and B with "Quit". What the cursor already says is left unsaid: moving, and A on
+what it points at.
+
+Left and Right going round the trainer's pictures and titles is not something a cursor
+says, and the font has no arrows (`<` and `>` neither), so the window has My Room's:
+one either side of whichever the cursor is on, the picture's place in the ring or the
+brackets round the title. The Control Pad's picture before "Change" in the hint line,
+which is My Room's own way, was tried first; it cannot say which way to press.
+
+**The EDIT box is lower than the ENTER menu's**, having less in it. `func_8130D1FC(panel,
+&rect)` works the menu's box out, and both users take it from there: `func_8130DA04` to
+draw the frame and clip to it, and the panel's update (`func_8130F2C4`) to register the
+region, key `panel + 1`. It goes between two rectangles of `D_81312730` by
+`panel->opening` (open: `x + 0x191`, `y`, 147 x 146, or 147 x 49 for panel modes 2 and
+up), and adds up to 53 to the height while the ITEM list is open (states 5 and up, eased
+over `panel->0x30` from 0 to 12), which is where "to quit" goes. The mod hooks
+it (`Mod_EnterMenuRect`) and scales the height to `EDIT_MENU_HEIGHT` while the editor is
+open: enough for the two shoulder buttons of a grabbed number, the most the box ever
+holds. Nothing has to be repainted by hand when it changes: a region whose rectangle
+changed is dirty, and so is what it no longer covers.
+
+To look at the art outside the game: the images are archive 1 of the table at ROM
+`0x437620`, at ROM `0x1898000` (the texts, archive 2, are at `0x1D70000`): `+0x0C` a
+count, then `{offset, size}` every 0x10 bytes. A bank is `PERS-SZP` with Yay0 data at
+the offset in `+0x08`; unpacked, a count, that many offsets (low 20 bits, less 8), and
+at each an 8-byte header (width, height, format, pixel size) and the pixels. On odd rows
+each pair of 32-bit words is swapped.
+
 ### Rules
 
 `*(Rules **)(D_8133197C + 0x940)` is the rule set in force (in the main segment; Anything

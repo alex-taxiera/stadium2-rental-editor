@@ -66,6 +66,10 @@ typedef struct EditState {
 #define EDIT_WINDOW_WIDTH 546
 #define EDIT_WINDOW_HEIGHT 186
 
+/* The ENTER menu's box while the editor is open: it holds the editor's key hints, and
+ * is as high as the most of them need, the two shoulder buttons of a grabbed number. */
+#define EDIT_MENU_HEIGHT 116
+
 /* Defined in state.s so C code never takes the address of a field directly: the
  * fragment loader cannot relocate two addresses that share one `lui`. */
 EditState *Edit_GetState(void);
@@ -103,5 +107,11 @@ s32 Edit_UpdateKeyboard(EditState *state, Pad *pad);
 void Edit_DrawWindow(DetailPanel *panel);
 void Edit_DrawSidebar(DetailPanel *panel);
 void Edit_DrawKeyboard(EditState *state, char *heading);
+void Edit_DrawButton(s32 x, s32 y, s32 button);
+
+/* A button's picture goes before the word for what it does, as in the stock menus:
+ * this far from the word, and starting this far above it. */
+#define BUTTON_GAP 1
+#define BUTTON_RISE 4
 
 #endif

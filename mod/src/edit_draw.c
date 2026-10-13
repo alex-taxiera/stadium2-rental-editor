@@ -61,15 +61,25 @@
 #define NAME_LINE_Y 17
 #define NAME_LINE_WIDTH 16
 #define NAME_LINE_HEIGHT 2
+/* A wide key has the picture of the button that does the same from anywhere on the
+ * keyboard, before its label, and the cursor's box is high enough for a round one. The
+ * shoulder button is bigger: it starts higher, and its shadow wants more room after it. */
+#define WIDE_KEY_HEIGHT (BUTTON_SIZE + 2)
+#define WIDE_KEY_BOX_RISE (BUTTON_RISE + 1)
+#define SHOULDER_RISE 6
+#define SHOULDER_GAP 4
 
-/* The inside of the ENTER menu box, relative to the panel; used for key hints. */
+/* The inside of the ENTER menu box, relative to the panel; used for key hints. A hint is
+ * a button's picture and what it does, placed across the box as "to check TM" is in
+ * the stock menu, on the menu's first row. The shoulder buttons are bigger, so their
+ * hints are further apart. */
 #define SIDEBAR_X (ENTER_MENU_X + 7)
 #define SIDEBAR_Y 9
 #define SIDEBAR_WIDTH 129
-#define SIDEBAR_HEIGHT 128
-#define SIDEBAR_TEXT_X (ENTER_MENU_X + 0x12)
-#define SIDEBAR_TEXT_Y 0x28
-#define SIDEBAR_SPACING 20
+#define SIDEBAR_HEIGHT (128 - (ENTER_MENU_HEIGHT - EDIT_MENU_HEIGHT))
+#define SIDEBAR_HINT_X (ENTER_MENU_X + 0xE)
+#define SIDEBAR_HINT_Y 0x28
+#define SIDEBAR_SHOULDER_SPACING 34
 
 static char sTitle[] = "EDIT";
 static char sMoves[] = "MOVES";
@@ -102,20 +112,8 @@ static char sSpeed[] = "SPEED";
 static char sSpecial[] = "SPECIAL";
 static char *sStatNames[NUM_ROWS] = { sHp, sAttack, sDefense, sSpeed, sSpecial };
 
-static char sHintChange[] = "A: change";
-static char sHintDone[] = "B: done";
-static char sHintAdjust[] = "Pad: adjust";
-static char sHintEnds[] = "L R: min max";
-static char sHintOk[] = "A: ok";
-static char sHintPick[] = "A: pick";
-static char sHintBack[] = "B: back";
-static char sHintPage[] = "Sideways: page";
-static char sHintType[] = "A: type";
-static char sHintDelete[] = "B: delete";
-static char sHintCase[] = "L R: case";
-static char sHintEnd[] = "START: end";
-
-#define MAX_HINTS 4
+static char sHintMin[] = "to min";
+static char sHintMax[] = "to max";
 
 static void Edit_White(void) {
     Text_SetColor(0xFF, 0xFF, 0xFF, 0xFF);
@@ -169,6 +167,15 @@ static void Edit_DrawNumber(s32 x, s32 y, s32 value) {
     char buffer[12];
 
     Edit_DrawRight(x, y, Edit_Digits(&buffer[11], value));
+}
+
+/* One of the round buttons' pictures. The render state for images must be set. */
+void Edit_DrawButton(s32 x, s32 y, s32 button) {
+    void *image = Image_Lookup(BUTTON_IMAGES, button);
+
+    if (image != NULL) {
+        Image_Draw(x, y, image, 0, 0);
+    }
 }
 
 /* What the DVs decide besides the stats, each shown only when it applies: Hidden Power's
@@ -375,8 +382,8 @@ static void Edit_DrawNameBoxes(EditState *state) {
     s32 i;
 
     if (state->keyRow == KEY_ROW_WIDE) {
-        Gfx_FillRectRgb(x + WIDE_KEY_WIDTH * (state->keyCol / WIDE_KEY_SPAN), y + WIDE_KEY_Y - KEY_BOX_RISE,
-                        WIDE_KEY_WIDTH, KEY_HEIGHT, 0x10, 0x10, 0x80);
+        Gfx_FillRectRgb(x + WIDE_KEY_WIDTH * (state->keyCol / WIDE_KEY_SPAN), y + WIDE_KEY_Y - WIDE_KEY_BOX_RISE,
+                        WIDE_KEY_WIDTH, WIDE_KEY_HEIGHT, 0x10, 0x10, 0x80);
     } else {
         Gfx_FillRectRgb(x + KEY_WIDTH * state->keyCol, y + KEY_Y + KEY_SPACING * state->keyRow - KEY_BOX_RISE,
                         KEY_WIDTH, KEY_HEIGHT, 0x10, 0x10, 0x80);
@@ -412,10 +419,40 @@ static void Edit_MeasureKeys(EditState *state) {
     state->keysMeasured = TRUE;
 }
 
+/* The first wide key names the page it switches to, as on the Game Boy. */
+static char *Edit_WideKeyLabel(EditState *state, s32 key) {
+    if (key == KEY_CASE) {
+        return state->keyPage == PAGE_UPPER ? sLower : sUpper;
+    }
+    return key == KEY_DELETE ? sDelete : sEnd;
+}
+
+/* From where a wide key's picture starts to where its label does. */
+static s32 Edit_WideKeyPicture(s32 key) {
+    return key == KEY_CASE ? SHOULDER_WIDTH + SHOULDER_GAP : BUTTON_SIZE + BUTTON_GAP;
+}
+
+/* Where a wide key's picture starts, for it and the label to be in the middle of the
+ * key together. */
+static s32 Edit_WideKeyX(EditState *state, s32 key) {
+    return EDIT_WINDOW_X + KEY_X + WIDE_KEY_WIDTH * key +
+           (WIDE_KEY_WIDTH - Edit_WideKeyPicture(key) - Text_Width(MENU_FONT, 1, Edit_WideKeyLabel(state, key))) / 2;
+}
+
+/* The wide keys' pictures, which go down before the text: either shoulder button
+ * switches the page, B deletes and START goes to END. */
+static void Edit_DrawKeyButtons(EditState *state) {
+    s32 y = EDIT_WINDOW_Y + WIDE_KEY_Y;
+
+    ShoulderR_Draw(Edit_WideKeyX(state, KEY_CASE), y - SHOULDER_RISE);
+    gSPDisplayList(gDisplayListHead++, D_80094E38);
+    Edit_DrawButton(Edit_WideKeyX(state, KEY_DELETE), y - BUTTON_RISE, BUTTON_B);
+    Edit_DrawButton(Edit_WideKeyX(state, KEY_END), y - BUTTON_RISE, BUTTON_START);
+}
+
 static void Edit_DrawName(EditState *state, char *heading) {
     s32 x = EDIT_WINDOW_X + KEY_X;
     s32 y = EDIT_WINDOW_Y;
-    char *wideKeys[NUM_WIDE_KEYS];
     char key[2];
     s32 row;
     s32 col;
@@ -449,18 +486,13 @@ static void Edit_DrawName(EditState *state, char *heading) {
         }
     }
 
-    /* The first wide key names the page it switches to, as on the Game Boy. */
-    wideKeys[KEY_CASE] = state->keyPage == PAGE_UPPER ? sLower : sUpper;
-    wideKeys[KEY_DELETE] = sDelete;
-    wideKeys[KEY_END] = sEnd;
     for (i = 0; i < NUM_WIDE_KEYS; i++) {
         if (state->keyRow == KEY_ROW_WIDE && state->keyCol / WIDE_KEY_SPAN == i) {
             Edit_Yellow();
         } else {
             Edit_White();
         }
-        Text_Draw(x + WIDE_KEY_WIDTH * i + (WIDE_KEY_WIDTH - Text_Width(MENU_FONT, 1, wideKeys[i])) / 2,
-                  y + WIDE_KEY_Y, wideKeys[i]);
+        Text_Draw(Edit_WideKeyX(state, i) + Edit_WideKeyPicture(i), y + WIDE_KEY_Y, Edit_WideKeyLabel(state, i));
     }
 }
 
@@ -469,6 +501,7 @@ void Edit_DrawKeyboard(EditState *state, char *heading) {
     Window_Draw(EDIT_WINDOW_X, EDIT_WINDOW_Y, EDIT_WINDOW_WIDTH, EDIT_WINDOW_HEIGHT);
     gSPDisplayList(gDisplayListHead++, D_80094D90);
     Edit_DrawNameBoxes(state);
+    Edit_DrawKeyButtons(state);
 
     gSPDisplayList(gDisplayListHead++, D_80094F50);
     Text_Begin();
@@ -503,36 +536,27 @@ void Edit_DrawWindow(DetailPanel *panel) {
     Text_End();
 }
 
-/* Key hints, painted over the stock ENTER menu entries. The box's frame stays. */
+/* Key hints, painted over the stock ENTER menu entries. The box's frame stays. They are
+ * the stock menus' kind, a button's picture and what it does, and only for what the
+ * cursor does not say: "to quit" as the ITEM list has it, and the shoulder buttons while
+ * a number is grabbed. The keyboard has its own on its keys. */
 void Edit_DrawSidebar(DetailPanel *panel) {
     EditState *state = Edit_GetState();
     s32 x = panel->x;
     s32 y = panel->y;
-    char *lines[MAX_HINTS];
-    s32 i;
-
-    lines[2] = NULL;
-    lines[3] = NULL;
-    if (state->mode == EDIT_FIELDS) {
-        lines[0] = sHintChange;
-        lines[1] = sHintDone;
-    } else if (state->mode == EDIT_ADJUST) {
-        lines[0] = sHintAdjust;
-        lines[1] = sHintEnds;
-        lines[2] = sHintOk;
-    } else if (state->mode == EDIT_NAME) {
-        lines[0] = sHintType;
-        lines[1] = sHintDelete;
-        lines[2] = sHintCase;
-        lines[3] = sHintEnd;
-    } else {
-        lines[0] = sHintPick;
-        lines[1] = sHintBack;
-        lines[2] = sHintPage;
-    }
+    s32 hintX = x + SIDEBAR_HINT_X;
+    s32 hintY = y + SIDEBAR_HINT_Y;
 
     gSPDisplayList(gDisplayListHead++, D_80094D90);
     Gfx_FillRectRgb(x + SIDEBAR_X, y + SIDEBAR_Y, SIDEBAR_WIDTH, SIDEBAR_HEIGHT, 0x33, 0x33, 0xF8);
+
+    if (state->mode == EDIT_ADJUST) {
+        ShoulderL_Draw(hintX, hintY - SHOULDER_RISE);
+        ShoulderR_Draw(hintX, hintY - SHOULDER_RISE + SIDEBAR_SHOULDER_SPACING);
+    } else if (state->mode != EDIT_NAME) {
+        gSPDisplayList(gDisplayListHead++, D_80094E38);
+        Edit_DrawButton(hintX, hintY - BUTTON_RISE, BUTTON_B);
+    }
 
     gSPDisplayList(gDisplayListHead++, D_80094F50);
     Text_Begin();
@@ -541,8 +565,12 @@ void Edit_DrawSidebar(DetailPanel *panel) {
     Text_Draw(x + ENTER_MENU_X + ENTER_MENU_TITLE_X - Text_Width(MENU_FONT, 1, sTitle) / 2,
               y + ENTER_MENU_TITLE_Y, sTitle);
     Edit_White();
-    for (i = 0; i < MAX_HINTS && lines[i] != NULL; i++) {
-        Text_Draw(x + SIDEBAR_TEXT_X, y + SIDEBAR_TEXT_Y + SIDEBAR_SPACING * i, lines[i]);
+    if (state->mode == EDIT_ADJUST) {
+        hintX += SHOULDER_WIDTH + SHOULDER_GAP;
+        Text_Draw(hintX, hintY, sHintMin);
+        Text_Draw(hintX, hintY + SIDEBAR_SHOULDER_SPACING, sHintMax);
+    } else if (state->mode != EDIT_NAME) {
+        Text_Draw(hintX + BUTTON_SIZE + BUTTON_GAP, hintY, Text_Lookup(ENTRY_TEXT_BANK, ENTRY_TEXT_TO_QUIT));
     }
     Text_End();
 }

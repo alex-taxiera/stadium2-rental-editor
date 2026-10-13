@@ -6,7 +6,10 @@
 #define NUM_TITLES ((s32)sizeof(sTrainerTitles))
 
 /* The trainer window, over where the team menu was: the picture on the left with its
- * place in the ring under it, the name and title on the right, key hints below. */
+ * place in the ring under it, the name and title on the right, and under them a line of
+ * key hints as My Room has one: a button's picture, then what it does. The picture and
+ * the title go round on Left and Right, so whichever the cursor is on has an arrow
+ * either side: of the picture's place in the ring, and of the brackets round the title. */
 #define WINDOW_WIDTH 420
 #define WINDOW_HEIGHT 196
 #define WINDOW_X ((640 - WINDOW_WIDTH) / 2)
@@ -17,11 +20,13 @@
 #define PICTURE_MARGIN 12 /* from the picture out to the brackets around it */
 #define COUNT_Y 126
 #define LABEL_X 140
-#define VALUE_X 214
+#define VALUE_X 226
 #define NAME_Y 60
 #define TITLE_ROW_Y 92
-#define HINT_Y 146
-#define HINT_SPACING 18
+#define HINT_Y 155
+#define HINT_SPACING 20 /* from one hint to the next */
+#define COUNT_HALF 22 /* half the width of the longest count, whose middle is a pixel right of the picture's */
+#define ARROW_GAP 4
 
 /* The brackets around the name or the title, as around a field of the editor. */
 #define FIELD_MARGIN BRACKET_CORNER
@@ -45,9 +50,7 @@ static char sHeading[] = "TRAINER";
 static char sName[] = "NAME";
 static char sTitle[] = "TITLE";
 static char sSlash[] = "/";
-static char sHintChange[] = "Left Right: change   A: ok";
-static char sHintType[] = "A: type";
-static char sHintMove[] = "Up Down: move   B: back";
+static char sHintType[] = "Type";
 
 /* The controller port of the side whose team is being chosen, negative for the COM. */
 static s32 Trainer_SidePort(u8 *state) {
@@ -401,6 +404,29 @@ static char *Trainer_ShownName(TrainerState *state) {
     return Text_Lookup(ENTRY_TEXT_BANK, ENTRY_TEXT_PLAYER + state->port);
 }
 
+/* What A does, which depends on the row: on the name it opens the keyboard, elsewhere
+ * it keeps everything and closes the window. */
+static char *Trainer_ConfirmHint(TrainerState *state) {
+    return state->row == TRAINER_NAME ? sHintType : Text_Lookup(ENTRY_TEXT_BANK, ENTRY_TEXT_OK);
+}
+
+static s32 Trainer_HintWidth(char *str) {
+    return BUTTON_SIZE + BUTTON_GAP + Text_Width(MENU_FONT, 1, str);
+}
+
+/* An arrow either side of what is `width` wide from `x`. */
+static void Trainer_DrawArrows(s32 x, s32 y, s32 width) {
+    void *left = Image_Lookup(ARROW_IMAGES, ARROW_LEFT);
+    void *right = Image_Lookup(ARROW_IMAGES, ARROW_RIGHT);
+
+    if (left == NULL || right == NULL) {
+        return;
+    }
+    gDPSetRenderMode(gDisplayListHead++, RENDER_MODE_SOFT, 0);
+    Image_Draw(x - ARROW_GAP - ARROW_WIDTH, y, left, 0, 0);
+    Image_Draw(x + width + ARROW_GAP, y, right, 0, 0);
+}
+
 static void Trainer_RowColor(TrainerState *state, s32 row) {
     if (state->row == row) {
         Text_SetColor(0xFF, 0xFF, 0, 0xFF);
@@ -414,9 +440,14 @@ static void Trainer_DrawWindow(TrainerState *state) {
     s32 y = WINDOW_Y;
     char *name = Trainer_ShownName(state);
     char *title = state->titleText + state->titleStart;
+    char *confirm = Trainer_ConfirmHint(state);
+    char *quit = Text_Lookup(ENTRY_TEXT_BANK, ENTRY_TEXT_QUIT);
     char buffer[12];
     char *number;
     s32 middle = x + PICTURE_X + TRAINER_PICTURE_SIZE / 2;
+    /* The two hints go in the middle of the window together. */
+    s32 confirmX = x + (WINDOW_WIDTH - Trainer_HintWidth(confirm) - HINT_SPACING - Trainer_HintWidth(quit)) / 2;
+    s32 quitX = confirmX + Trainer_HintWidth(confirm) + HINT_SPACING;
 
     Window_Draw(x, y, WINDOW_WIDTH, WINDOW_HEIGHT);
     /* The cursor: the stock brackets, around whichever of the three it is on. */
@@ -435,6 +466,15 @@ static void Trainer_DrawWindow(TrainerState *state) {
     }
     gSPDisplayList(gDisplayListHead++, D_80094E38);
     Image_Draw(x + PICTURE_X, y + PICTURE_Y, state->picture, 0, 0);
+    Edit_DrawButton(confirmX, y + HINT_Y - BUTTON_RISE, BUTTON_A);
+    Edit_DrawButton(quitX, y + HINT_Y - BUTTON_RISE, BUTTON_B);
+    /* The brackets move in and out by 2, and the arrows stay clear of them. */
+    if (state->row == TRAINER_PICTURE) {
+        Trainer_DrawArrows(middle + 1 - COUNT_HALF, y + COUNT_Y, 2 * COUNT_HALF);
+    } else if (state->row == TRAINER_TITLE) {
+        Trainer_DrawArrows(x + VALUE_X - FIELD_MARGIN - 2, y + TITLE_ROW_Y,
+                           Text_Width(MENU_FONT, 1, title) + 2 * FIELD_MARGIN + 4);
+    }
 
     gSPDisplayList(gDisplayListHead++, D_80094F50);
     Text_Begin();
@@ -462,8 +502,8 @@ static void Trainer_DrawWindow(TrainerState *state) {
     Text_Draw(x + VALUE_X, y + TITLE_ROW_Y, title);
 
     Text_SetColor(0xFF, 0xFF, 0xFF, 0xFF);
-    Trainer_DrawCentred(HINT_Y, state->row == TRAINER_NAME ? sHintType : sHintChange);
-    Trainer_DrawCentred(HINT_Y + HINT_SPACING, sHintMove);
+    Text_Draw(confirmX + BUTTON_SIZE + BUTTON_GAP, y + HINT_Y, confirm);
+    Text_Draw(quitX + BUTTON_SIZE + BUTTON_GAP, y + HINT_Y, quit);
     Text_End();
 }
 

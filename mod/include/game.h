@@ -159,6 +159,13 @@ extern Pad D_800CE060[4];
 
 /* --- Detail panel and ENTER menu (fragment 14) --- */
 
+typedef struct Rect {
+    /* 0x00 */ s16 x;
+    /* 0x02 */ s16 y;
+    /* 0x04 */ s16 width;
+    /* 0x06 */ s16 height;
+} Rect;
+
 typedef struct DetailPanel {
     /* 0x00 */ s32 redraw; /* set to repaint the detail panel; cleared by the game */
     /* 0x04 */ s32 confirmSound;
@@ -198,6 +205,7 @@ s32 func_8130CE3C(DetailPanel *panel);
 
 /* Menu geometry, from func_8130DA04. */
 #define ENTER_MENU_X 0x191
+#define ENTER_MENU_HEIGHT 0x92 /* the open box, frame and all (D_81312730) */
 #define ENTER_MENU_TITLE_X 0x49
 #define ENTER_MENU_TITLE_Y 0xE
 #define ENTER_MENU_ITEM_X 0x45
@@ -327,6 +335,9 @@ char *func_8004C874(s32 bank, s32 id); /* a text of a loaded bank */
 #define ENTRY_TEXT_BANK 0xF
 #define ENTRY_TEXT_PLAYER 0x62 /* "1P", then 2P to 4P */
 #define ENTRY_TEXT_EXCHANGE_WHICH 0x1F /* "Exchange which POKeMON?", over the team's box */
+#define ENTRY_TEXT_TO_QUIT 8 /* "to quit", which the ITEM list has after a picture of B */
+#define ENTRY_TEXT_OK 0x1A
+#define ENTRY_TEXT_QUIT 0x43
 
 void func_80003F74(void *dst, u32 romStart, u32 romEnd, s32 arg3); /* reads the ROM, and waits for it */
 #define Rom_Read func_80003F74
@@ -335,6 +346,39 @@ void func_8004D19C(s32 x, s32 y, void *image, s32 arg3, s32 arg4);
 #define Image_Draw func_8004D19C
 
 extern Gfx D_80094E38[]; /* render state for images */
+
+/* --- Button pictures ---
+ *
+ * The game's own pictures of the controller's buttons, which it puts beside what a
+ * button does: the round ones, as before "to check TM" in the ENTER menu, and the
+ * shoulder buttons at the ends of the list's tabs. The entry screen loads both sets
+ * (func_81602DD8).
+ */
+
+void *func_8004C990(s32 bank, s32 index); /* an image of a loaded bank, or NULL */
+#define Image_Lookup func_8004C990
+
+#define BUTTON_IMAGES 0x33
+enum { BUTTON_A, BUTTON_B, BUTTON_START = 7 }; /* 2 to 6 are C and its four directions */
+#define BUTTON_SIZE 24
+
+/* My Room's arrows, which it has beside what Left and Right change. The entry screen
+ * does not load them, so the mod does as the screen starts: a bank loaded twice is
+ * loaded once, and the pool frees it with the screen. They have soft shadows, so they
+ * are drawn in the render mode the shoulder buttons are. */
+s32 func_8004C8C0(s32 bank); /* loads a bank of images into the main pool */
+#define Image_LoadBank func_8004C8C0
+#define ARROW_IMAGES 0xEA
+enum { ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, ARROW_UP };
+#define ARROW_WIDTH 11 /* the arrow, 15 high; its shadow reaches 3 further right and down */
+#define RENDER_MODE_SOFT 0x0F0A7008
+
+/* These set the render state they need, and leave the one for text. */
+void func_8160710C(s32 x, s32 y);
+void func_816071AC(s32 x, s32 y);
+#define ShoulderL_Draw func_8160710C
+#define ShoulderR_Draw func_816071AC
+#define SHOULDER_WIDTH 36 /* the button, 26 high; its shadow reaches 4 further right and 6 further down */
 
 /* --- Item list (fragments 11 and 14) ---
  *
@@ -429,6 +473,7 @@ void func_800226C0(s32 id);
 
 void orig_func_8130251C(void);
 void orig_func_8130DA04(DetailPanel *panel, void *ctx);
+f32 orig_func_8130D1FC(DetailPanel *panel, Rect *rect);
 void orig_func_8130EC9C(DetailPanel *panel);
 void orig_func_81306B64(void *list, s32 x, s32 y, s32 arg3, s32 *available);
 void orig_func_813114B8(Menu *menu, s32 row);
