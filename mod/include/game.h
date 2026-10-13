@@ -156,6 +156,8 @@ extern Pad D_800CE060[4];
 #define BTN_DDOWN 0x0400
 #define BTN_DLEFT 0x0200
 #define BTN_DRIGHT 0x0100
+#define BTN_CLEFT 0x0002
+#define BTN_CRIGHT 0x0001
 
 /* --- Detail panel and ENTER menu (fragment 14) --- */
 
@@ -273,13 +275,20 @@ s32 func_81311C70(Menu *menu, MenuDef *def, s32 controller, s32 textArg);
 /* --- Trainer pictures ---
  *
  * 64 x 64 pictures, 0x2008 bytes each with their header, in an archive of the ROM: a
- * directory of {offset, size} per trainer, and at each offset a count of expressions and
- * where each one's pixels start. The game reads them through an archive handle that the
- * entry screen does not open, so the mod reads the ROM itself.
+ * directory of {offset, size} per trainer, and at each offset a count of pictures, one
+ * to three, and where each one's pixels start. The game asks for a trainer and one of
+ * its pictures, and reads them through an archive handle that the entry screen does not
+ * open, so the mod reads the ROM itself.
+ *
+ * The build gives the archive a directory of its own, in front of it in the ROM, in
+ * which every picture has a number: a trainer's first keeps the trainer's, and the
+ * others follow the last trainer, each as the first picture of its number. A choice can
+ * then be any picture and still be one number. See tools/mod/gen_trainer_faces.py.
  */
 
-#define TRAINER_PICTURES_ROM 0x02268000
-#define NUM_TRAINER_PICTURES 67
+#define TRAINER_PICTURES_ROM 0x0225B000 /* the mod's directory */
+#define NUM_TRAINERS 67
+#define NUM_TRAINER_PICTURES 158
 #define TRAINER_PICTURE_SIZE 64
 #define TRAINER_PICTURE_BYTES 0x2008
 
@@ -288,7 +297,7 @@ s32 func_81311C70(Menu *menu, MenuDef *def, s32 controller, s32 textArg);
 #define DEFAULT_TRAINER_EXPRESSION 1
 
 /* Each player's choice, by controller port: 0 for the game's own picture, else a
- * trainer's number plus one. These are the last four bytes of osAppNMIBuffer, which
+ * picture's number plus one. These are the last four bytes of osAppNMIBuffer, which
  * libultra clears at power on and the game never uses, so a choice lasts until then. The
  * stock code that picks a human's picture is changed to read them (mod/stock_patches.txt). */
 #define gTrainerChoices ((u8 *)0x80000358)
@@ -359,7 +368,8 @@ void *func_8004C990(s32 bank, s32 index); /* an image of a loaded bank, or NULL 
 #define Image_Lookup func_8004C990
 
 #define BUTTON_IMAGES 0x33
-enum { BUTTON_A, BUTTON_B, BUTTON_START = 7 }; /* 2 to 6 are C and its four directions */
+/* 2, 3 and 6 are C, C down and C up. */
+enum { BUTTON_A, BUTTON_B, BUTTON_C_LEFT = 4, BUTTON_C_RIGHT, BUTTON_START = 7 };
 #define BUTTON_SIZE 24
 
 /* My Room's arrows, which it has beside what Left and Right change. The entry screen

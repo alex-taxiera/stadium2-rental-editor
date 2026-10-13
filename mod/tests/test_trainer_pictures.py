@@ -1,5 +1,5 @@
-"""What the mod assumes about the ROM's trainer pictures and titles, and about where it
-remembers a player's. Run: python3 -m unittest discover mod/tests"""
+"""What the mod assumes about the ROM's trainer pictures and titles, the directory it
+gives the pictures, and where it remembers a player's. Run: python3 -m unittest discover mod/tests"""
 
 import re
 import struct
@@ -10,6 +10,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "mod"))
 
+import gen_trainer_faces  # noqa: E402
 import gen_trainer_titles  # noqa: E402
 
 BASE_ROM = REPO_ROOT / "baseroms" / "us" / "baserom.z64"
@@ -34,7 +35,7 @@ class TrainerPicturesTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.rom = BASE_ROM.read_bytes()
-        cls.base = constant("TRAINER_PICTURES_ROM")
+        cls.base = gen_trainer_faces.STOCK_ROM
         cls.count, = struct.unpack_from(">I", cls.rom, cls.base + 0xC)
 
     def expressions(self, trainer: int) -> list:
@@ -44,8 +45,7 @@ class TrainerPicturesTest(unittest.TestCase):
         return [entry + offset - 8 for offset in struct.unpack_from(f">{count}I", self.rom, entry + 4)]
 
     def test_the_archive_has_as_many_trainers_as_the_window_steps_through(self):
-        self.assertEqual(self.count, constant("NUM_TRAINER_PICTURES"))
-        self.assertLess(self.count, 0x80)   # the game keeps a trainer's number in a signed byte
+        self.assertEqual(self.count, constant("NUM_TRAINERS"))
 
     def test_every_trainer_has_a_first_expression_of_the_size_the_window_draws(self):
         size, total = constant("TRAINER_PICTURE_SIZE"), constant("TRAINER_PICTURE_BYTES")
@@ -66,6 +66,14 @@ class TrainerPicturesTest(unittest.TestCase):
         self.assertLess(trainer, self.count)
         self.assertLess(expression, len(self.expressions(trainer)))
 
+    def test_the_archive_is_where_the_games_table_says(self):
+        at, = struct.unpack_from(">I", self.rom, gen_trainer_faces.table_entry())
+        self.assertEqual(at, self.base)
+        # Nothing follows the directory but the first trainer's block, so it cannot grow
+        # where it is: hence a second one.
+        first, = struct.unpack_from(">I", self.rom, self.base + 0x10)
+        self.assertEqual(first, 0x10 + self.count * 0x10)
+
     def test_the_choices_are_kept_in_the_buffer_the_os_clears_at_power_on(self):
         choices = address("gTrainerChoices")
         self.assertEqual(choices + 4, NMI_BUFFER + NMI_BUFFER_SIZE)
@@ -73,6 +81,78 @@ class TrainerPicturesTest(unittest.TestCase):
         loads = re.findall(r"lbu\s+\$t\d, (\w+)\(\$t\d\)\s*$", STOCK_PATCHES.read_text(encoding="utf-8"), re.M)
         self.assertEqual(len(loads), 3)
         self.assertEqual({0x80000000 + int(load, 16) for load in loads}, {choices})
+
+
+@unittest.skipUnless(BASE_ROM.exists(), "no baserom; run tools/mod/check_rom.py")
+class TrainerDirectoryTest(unittest.TestCase):
+    """The directory the build gives the pictures, read the way the game reads one."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.stock = BASE_ROM.read_bytes()
+        cls.rom = bytearray(cls.stock)
+        cls.count = gen_trainer_faces.install(cls.rom)
+        cls.base, = struct.unpack_from(">I", cls.rom, gen_trainer_faces.table_entry())
+        cls.pictures = gen_trainer_faces.pictures(cls.stock)
+        cls.numbers = gen_trainer_faces.numbers(cls.stock)
+
+    def picture(self, number: int, expression: int) -> int:
+        """Where func_8004E0F0 reads a picture from: the entry, its block, then the place
+        the block gives. Its sums are of 32 bits."""
+        listed, = struct.unpack_from(">I", self.rom, self.base + 0xC)
+        self.assertLess(number, listed)
+        block = (self.base + struct.unpack_from(">I", self.rom, self.base + 0x10 + number * 0x10)[0]) & 0xFFFFFFFF
+        count, = struct.unpack_from(">I", self.rom, block)
+        self.assertLess(expression, count)
+        self.assertLessEqual(count, gen_trainer_faces.MAX_FACES)
+        return (block + struct.unpack_from(">I", self.rom, block + 4 + expression * 4)[0] - 8) & 0xFFFFFFFF
+
+    def test_the_mod_reads_the_directory_the_build_writes(self):
+        self.assertEqual(self.base, gen_trainer_faces.DIRECTORY_ROM)
+        self.assertEqual(self.base, constant("TRAINER_PICTURES_ROM"))
+        self.assertEqual(self.count, constant("NUM_TRAINER_PICTURES"))
+        self.assertEqual(self.base % 0x10, 0)
+
+    def test_every_picture_has_one_number_whose_first_picture_it_is(self):
+        self.assertEqual(len(self.numbers), self.count)
+        self.assertEqual(len(set(self.numbers)), self.count)
+        self.assertEqual(self.count, sum(len(faces) for faces in self.pictures))
+        for number, (trainer, face) in enumerate(self.numbers):
+            self.assertEqual(self.picture(number, 0), self.pictures[trainer][face], number)
+        # A choice is kept in a byte as the number plus one, with 0 for none.
+        self.assertLess(self.count, 0x100)
+
+    def test_the_games_trainers_keep_their_numbers_and_all_their_pictures(self):
+        for trainer, faces in enumerate(self.pictures):
+            self.assertEqual(self.numbers[trainer], (trainer, 0))
+            for expression, at in enumerate(faces):
+                self.assertEqual(self.picture(trainer, expression), at, (trainer, expression))
+
+    def test_only_unused_space_and_the_archives_address_change(self):
+        start, end = gen_trainer_faces.SLACK_START, gen_trainer_faces.SLACK_END
+        self.assertEqual(self.stock[start:end].count(0xFF), end - start)
+        self.assertLessEqual(start, self.base)
+        self.assertLessEqual(self.base + len(gen_trainer_faces.directory(self.stock)), end)
+        entry = gen_trainer_faces.table_entry()
+        for lo, hi in ((0, entry), (entry + 4, start), (end, len(self.stock))):
+            self.assertEqual(self.rom[lo:hi], self.stock[lo:hi], f"unexpected change in {lo:#x}-{hi:#x}")
+
+    def test_a_rom_that_has_one_already_is_refused(self):
+        with self.assertRaises(ValueError):
+            gen_trainer_faces.install(bytearray(self.rom))
+
+    def test_the_generated_table_is_up_to_date(self):
+        generated = (REPO_ROOT / "mod" / "data" / "trainer_faces.inc.c").read_text(encoding="ascii")
+        self.assertEqual(generated, gen_trainer_faces.render(self.stock))
+
+    def test_the_picture_shown_first_is_one_the_trainer_has(self):
+        for trainer, faces in enumerate(self.pictures):
+            self.assertLess(gen_trainer_faces.default_face(trainer, len(faces)), len(faces), trainer)
+        self.assertLessEqual(set(gen_trainer_faces.DEFAULT_FACES), set(range(len(self.pictures))))
+        # The player's own trainer starts on the picture the game gives a player.
+        own = constant("DEFAULT_TRAINER_PICTURE")
+        self.assertEqual(gen_trainer_faces.default_face(own, len(self.pictures[own])),
+                         constant("DEFAULT_TRAINER_EXPRESSION"))
 
 
 class TrainerMemoryTest(unittest.TestCase):

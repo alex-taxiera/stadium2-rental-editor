@@ -90,8 +90,9 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
     bottom of Abra's 51 moves, and gliding there after a page.
 - **Trainer picture, name and title.** The menu a chosen team gets (OK / OK to Register
   / ...) has one more entry, **Change Trainer**, for a human player's team. Its window
-  has three rows: the picture, stepping round the game's 67 trainer pictures and the
-  game's own choice; the name, typed on the editor's keyboard, up to seven characters;
+  has three rows: the picture, stepping round the game's 67 trainers and the game's own
+  choice, with C Left and C Right going round a trainer's faces from any row; the name,
+  typed on the editor's keyboard, up to seven characters;
   and the title, stepping round the forty the game has. A keeps all three for that
   controller port until power off. They are then that player's where the two sides are
   set against each other, on the order screen (picture and name; it shows no title), and
@@ -105,8 +106,14 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
     name and title; player 2 choosing with controller 2 while controller 1 does nothing
     in the window or on the keyboard, and only side 2 changing; everything gone after a
     power cycle; the 4 MB build.
-  - A choice shows the trainer's first expression. In a battle against the COM the
-    game shows no picture for the player, so there is nothing to change there.
+  - Checked for the faces: all 158 pictures in the window, each byte for byte the
+    ROM's, round the whole ring and round every trainer's own; C buttons doing nothing
+    on the game's own choice or a trainer with one picture, and working from the name
+    and the title; a second face of the last trainer, number 156, kept, shown again by
+    the window, and on the versus card, the order screen and the result; player 2's C
+    buttons, with controller 1's ignored; the 4 MB build as far as the order screen.
+  - A choice is one picture and stays that one whoever wins. In a battle against the COM
+    the game shows no picture for the player, so there is nothing to change there.
   - Only tried in Free Battle. The pictures and titles are decided in code every mode
     shares; the name is not (see "Trainer names and titles").
   - After the keyboard the window is still on the name, where A types again: keeping
@@ -316,6 +323,22 @@ short jump (rebuilding only that range of the table). The mod fragment is loaded
 - `0x437610–0x4000000` is one asset blob that must not move.
 - `0x16061C0–0x1638000` is `0xFF` padding (204,352 bytes): home for the mod fragment. **[C]**
   `check_rom.py` verifies it on the real ROM.
+- **The asset blob is archives found through a table** at ROM `0x437620`: 19 addresses of
+  four bytes, read once at boot into `D_80124D00` (`func_80035620`) and looked up by
+  `func_800356CC(n)`. **[C]** 1 is the images, 2 the texts, 0xB the rosters, 0xF the
+  trainer pictures. Most are a header `{flags, 0, size, count}` and a directory of
+  `{offset, size, 0, 0}`, offsets from the archive's start (`BinArchive_Open`,
+  `src/4420.c`); 9 and 10 are not. So an archive can be given another directory
+  somewhere else by changing its four bytes in the table, which is how the trainer
+  pictures get theirs.
+- **Each archive is padded with `0xFF` to the next**, which starts on a multiple of
+  0x1000, and seven of those gaps are over 50 KB: `0x16FB090`, `0x188A8D0`, `0x1D63410`,
+  `0x1E2DE80`, `0x2222590`, `0x225A820` and, to the end of the ROM, `0x3FEDFD0`; 419,472
+  bytes together, besides the mod's own hole. The mod uses `0x225A820–0x2268000`
+  (55,264 bytes, of which 4,000 from `0x225B000`), which `check_rom.py` verifies too.
+  **[I]** that the others are as dead: each starts where its archive's size says it
+  ends, but only this one and the hole have been written to and run. The ROM is 64 MB
+  already, so this padding is all the room there is for new data.
 
 ## Game flow
 
@@ -638,7 +661,9 @@ the EDIT box says B "to quit" with the game's own text, and L "to min", R "to ma
 a number is grabbed; the keyboard's wide keys each have the button that does the same
 from anywhere, R before `lower` / `UPPER`, B before `DEL`, START before `END`; and the
 trainer window has one line, A with "OK" (or "Type" on the name, where A opens the
-keyboard) and B with "Quit". What the cursor already says is left unsaid: moving, and A on
+keyboard) and B with "Quit", and before them, for a trainer with more than one picture,
+C Left and C Right with "Face": nothing on screen would say so otherwise. B comes last,
+as in My Room's line. What the cursor already says is left unsaid: moving, and A on
 what it points at.
 
 Left and Right going round the trainer's pictures and titles is not something a cursor
@@ -771,8 +796,51 @@ ID), but DVs play no part in that.
 - **Reading it** is done by stock code changed in place (`mod/stock_patches.txt`): in
   each of the three functions the human's rule is rewritten in the room it took, to
   look up the port's byte first. The two loaders keep their three relocated calls of
-  `func_8004E0F0` where they are and use the last. A choice always shows expression 0,
-  the one every trainer has.
+  `func_8004E0F0` where they are and use the last. There is room for a number and no
+  more, so a choice always asks for expression 0, the one every trainer has.
+- **Every picture has a number**, so that a choice can be any of them all the same. The
+  build writes a second directory for the archive at ROM `0x0225B000`, in the padding in
+  front of it, and points the archive table's entry (`0x43765C`) there
+  (`tools/mod/gen_trainer_faces.py`, called by `modtool.py inject`). Numbers 0 to 66 are
+  the stock entries, their offsets 0xD000 more, so every trainer keeps its number and all
+  its pictures. Numbers 67 to 157 are the 91 second and third pictures, trainer by
+  trainer, each entry leading to a 16-byte block that follows the directory: a count of
+  1 and where that one picture is. The loader checks a number against the directory's
+  count and reads the block and the picture by adding 32-bit offsets, and that is all it
+  uses: not an entry's size, not the archive's. No picture is moved or copied; 4,000
+  bytes in all.
+  - A stock directory cannot grow where it is: its last entry ends at `+0x440`, where the
+    first trainer's block begins.
+  - A choice past 0x7F is fine on the way the mod takes: the picture numbers travel as
+    halfwords (`sh` in `func_826002BC`, `lh` in `func_8006BAC4` and `func_81406AAC`).
+    The signed bytes are the pair at `session->0x2C + 0x74`, which nothing sets.
+  - The directory is kept in memory by the screens that open the archive, at 16 bytes an
+    entry: 1,456 bytes more than before on the versus card, the order screen and the
+    result.
+- **A trainer's faces** in the window are that table read the other way:
+  `mod/data/trainer_faces.inc.c` has, per trainer, how many pictures, the number of the
+  second, and which the window shows first. Left and Right on the picture go round the
+  trainers; C Left and C Right go round the trainer's pictures from any row, as the C
+  buttons act on the detail panel's moves wherever its cursor is. The window's state
+  keeps the trainer and the face, and works the choice out from them.
+- **Which face comes first** was decided by looking at them: `DEFAULT_FACES` in the
+  generator. With three pictures the game's run upset, pleased, composed; with two,
+  mostly upset, composed. The last is what the game shows of CAL before a battle (his
+  third) and of the player (their second), so the window starts on the last, except for
+  six trainers whose pictures run another way or whose last is not their best, chosen
+  from a sheet of them all. Where the game keeps its own choice for
+  each of its trainers was looked for and not found: in Free Battle the table at
+  `+0x58` of fragment 20's data, which `func_826002BC` reads for the COM, is empty, and
+  the pair `(0x14, 2)` is there at `+0x84` by the time the result is up. 17 trainers have
+  one picture, 9 have two and 41 three.
+- **To look at the pictures**: 64 x 64, 16 bits a pixel (5 each of red, green and blue,
+  then one of alpha, always set), and on odd rows each pair of 32-bit words is swapped,
+  as in the image banks. The grey frame is part of the picture: 3 pixels at the left and
+  top, 4 at the right and bottom, with the trainer on black inside, (3,3) to (59,59).
+  A new picture would be one more entry and a block with the picture after it, 8,232
+  bytes in all. Five fit behind the directory where it is; a sixth does if the directory
+  starts at the very front of the padding, 2,016 bytes sooner, or goes in another gap,
+  an entry's offset being free to point anywhere in the ROM.
 
 ## Trainer names and titles
 
@@ -883,8 +951,9 @@ build tools or to the commit of the decompilation the mod sits on.
     python3 -m unittest discover -s mod/tests/emu   # the game in BizHawk; Windows; about 12 minutes
 
 1. **Tool tests** (`mod/tests/test_*.py`): the ROM checker, relocation tool, injector,
-   patch tool, the generated move, keyboard and trainer title tables, and what the mod
-   assumes about the ROM's trainer pictures.
+   patch tool, the generated move, keyboard, trainer title and trainer face tables, what
+   the mod assumes about the ROM's trainer pictures, and the directory it gives them,
+   read the way the game reads one.
 2. **Checksums** (`mod/checksums.txt`): SHA-1 of the original ROM, the mod ROM and the
    patch. The build is repeatable, so the same sources always give the same bytes.
    `build_mod.sh` reports the comparison at the end of every build, and

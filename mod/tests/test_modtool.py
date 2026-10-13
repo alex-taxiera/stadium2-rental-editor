@@ -215,12 +215,17 @@ class InjectedRomTest(unittest.TestCase):
     def test_only_hooked_code_the_table_and_the_checksum_changed(self):
         start = self.elf.symbol(f"fragment{modtool.STOCK_FRAGMENT}_ROM_START")
         end = self.elf.symbol(f"fragment{modtool.STOCK_FRAGMENT + 1}_ROM_START")
-        # Take back the instructions patched in place; then everything outside the header
-        # checksum, fragment 14 and the hole is untouched.
+        # Take back the instructions patched in place and the trainer pictures' directory
+        # (test_trainer_pictures.py has what that may change); then everything outside the
+        # header checksum, fragment 14 and the hole is untouched.
         rom = bytearray(self.rom)
         for at in self.stock_patch_offsets():
             self.assertFalse(start <= at < end or modtool.HOLE_START <= at < modtool.HOLE_END)
             rom[at:at + 4] = self.stock[at:at + 4]
+        faces = modtool.gen_trainer_faces
+        for lo, hi in ((faces.SLACK_START, faces.SLACK_END), (faces.table_entry(), faces.table_entry() + 4)):
+            self.assertNotEqual(rom[lo:hi], self.stock[lo:hi])
+            rom[lo:hi] = self.stock[lo:hi]
         for lo, hi in ((0, 0x10), (0x18, start), (end, modtool.HOLE_START), (modtool.HOLE_END, len(rom))):
             self.assertEqual(rom[lo:hi], self.stock[lo:hi], f"unexpected change in {lo:#x}-{hi:#x}")
 

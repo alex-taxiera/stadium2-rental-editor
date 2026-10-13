@@ -7,6 +7,7 @@ import unittest
 
 import harness as h
 from harness import DOWN, RIGHT, UP, press, presses
+from test_trainer import TO_INTRO, TO_ORDER_SCREEN, TO_VERSUS
 
 # What the stock picker leaves free in the main pool on 4 MB. The mod's fragment comes
 # out of this, with the 16 bytes the pool puts in front of every block.
@@ -53,9 +54,17 @@ class WithoutExpansionPakTest(h.EmulatorTest):
         self.do(*h.CHANGE_TRAINER, *presses(RIGHT, 3), *press(UP), *press(h.LEFT))
         self.assertEqual(self.s.trainer_state().title_text, b"RIVAL")
         self.do(*press("A", 40))
-        self.assertEqual(self.s.trainer_choices(), [3, 0, 0, 0])
+        choice = h.picture_choice(2)
+        self.assertEqual(self.s.trainer_choices(), [choice, 0, 0, 0])
         self.assertEqual(int(float(self.s.run(UNWATCH)[0])), free)
         self.assertEqual(self.s.u32(h.POOL_FREE), free)
+
+        # The screens that follow read that picture through the game's own directory of
+        # them, which the mod made longer, and each keeps it in memory while it is up.
+        self.do(*TO_INTRO)
+        self.assertEqual(self.s.intro()[1][0], h.trainer_picture(*h.picture_numbers()[choice - 1]))
+        self.do(*TO_VERSUS, *TO_ORDER_SCREEN)
+        self.assertEqual(self.s.battle_pictures()[0], (choice - 1, 0))
 
 
 if __name__ == "__main__":
