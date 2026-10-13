@@ -50,9 +50,9 @@ changed, the known limits and a checklist for trying it on a console.
 A rental can be edited when it is chosen and again once it is on the team, without
 taking it off: nothing changed earlier is lost.
 
-**Change Trainer** is separate from the editor: your picture from the game's 67, a name
-in place of 1P, and a title in place of POKéMON TRAINER, until the console is switched
-off.
+**Change Trainer** is separate from the editor: your picture from the game's 67 trainers,
+with whichever of their faces you like, a name in place of 1P, and a title in place of
+POKéMON TRAINER, until the console is switched off.
 
 It works in Free Battle and when registering a team, for either player, with or without
 an Expansion Pak, and a registered team keeps its edits. The save format is untouched.

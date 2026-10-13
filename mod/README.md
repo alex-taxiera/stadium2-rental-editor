@@ -62,7 +62,10 @@ Up and Down moving between them:
 ![The trainer window: a picture, the name ASH and the title GYM LEADER](images/trainer.png)
 
 - your **picture**: Left and Right step through every trainer in the game. The first one
-  in the ring is the game's own choice for you.
+  in the ring is the game's own choice for you. Most trainers have two or three faces,
+  and C Left and C Right go round them, wherever the cursor is: the line under the
+  window shows the two buttons and "Face" whenever there is more than one. That is every
+  picture of a trainer in the game, 158 of them.
 - your **name**, in place of 1P to 4P: A opens the editor's keyboard, for up to seven
   characters. An empty name gives the game's back.
 - your **title**, in place of POKéMON TRAINER: Left and Right step through the forty
@@ -150,7 +153,9 @@ they last until the console is switched off.
 - The original trainer's name and ID stay as the rental has them.
 - Change Trainer has only been tried in Free Battle. A typed name shows there; the other
   modes name the player in code this does not change.
-- A chosen picture is always the trainer's first expression.
+- A chosen trainer keeps the one face you gave them: it does not change with how the
+  battle went, as the game's own trainers' faces do. Which face a trainer starts on in
+  the window was picked by eye, to be the one they would meet you with.
 - Only rentals get EDIT, not Pokémon read from a Game Pak. On a team that has both, A on
   one of the others after Edit POKéMON does nothing but sound the error; that has not
   been tried, there being no Game Pak in the tests.
@@ -159,7 +164,7 @@ they last until the console is switched off.
 ## What has been tested
 
 Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts. Most of
-it is now an automated suite (`mod/tests/emu`, 45 scenarios) that plays the editor and
+it is now an automated suite (`mod/tests/emu`, 47 scenarios) that plays the editor and
 checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 
 - Moves, level, happiness, DVs and Stat Exp edited and carried into a battle.
@@ -173,11 +178,11 @@ checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
   second of two edited with the first untouched; the computer's team; a second player's,
   with controller 2. Under Poké Cup rules, the level of one of the team held to 50–55 and
   stopped at the team's level total.
-- Change Trainer: every picture in the window, and a chosen picture, name and title where
-  the two sides are set against each other, on the order screen and on the result after
-  a battle; a name taken back; a name still there on the next visit to the entry screen;
-  a second player choosing theirs with controller 2; the computer's picture, name and
-  title never changing; all of it gone after a power cycle.
+- Change Trainer: every face of every trainer in the window, and a chosen picture, name
+  and title where the two sides are set against each other, on the order screen and on
+  the result after a battle; a name taken back; a name still there on the next visit to
+  the entry screen; a second player choosing theirs with controller 2; the computer's
+  picture, name and title never changing; all of it gone after a power cycle.
 - The ITEM list holding all 42 items, and one from beyond the original six (Leftovers)
   entered with a rental.
 - EDIT from Free Battle and from Register POKéMON.
@@ -185,8 +190,9 @@ checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 - A second player editing with controller 2, with controller 1 ignored meanwhile.
 - A build made to believe the console has 4 MB of RAM (`tools/mod/make_4mb_rom.py`): the
   entry screen keeps 160 KB of its memory pool free with the mod loaded, and the editor
-  and keyboard allocate nothing. (A battle on that build was run before the keyboard was
-  added; the mod is unloaded by then.)
+  and keyboard allocate nothing; a chosen face is then shown where the two sides are set
+  against each other and on the order screen. (A battle on that build was run before
+  the keyboard was added; the mod is unloaded by then.)
 - The original ROM still builds byte for byte from the same tree, and the patch applied
   to it reproduces the modified ROM.
 
@@ -210,8 +216,11 @@ Not tested: standalone ares, other emulators, the Stadium cups and Gym Leader Ca
    the lower panel changes colour.
 7. Up to the name, A. Type a name using both cases and a sign from the bottom row, then
    Start, A. The lower panel shows the new name.
-8. B, then Yes. The party box shows the Pokémon; Start, OK.
-9. Pick the opponent's team and start the battle. Check the name, moves and HP in battle.
+8. B, then Yes. The party box shows the Pokémon; Start, then **Change Trainer**. Right
+   to another trainer, C Right for another of their faces, A. The menu comes back; OK.
+9. Pick the opponent's team and start the battle. The face you chose should be beside
+   your team before the battle and on the screen where you put it in order. Check the
+   name, moves and HP in battle.
 10. Leave and come back to the picker a few times, including after a battle.
 11. Two players: Free Battle → 1P vs 2P. Player 2 edits with controller 2.
 12. Start → **OK to Register**, switch the console off and on, and load the team from
@@ -221,8 +230,9 @@ Not tested: standalone ares, other emulators, the Stadium cups and Gym Leader Ca
 
 If something goes wrong, the useful details are the step, whether the Expansion Pak was
 fitted, the flashcart and its firmware, and what was on screen: a freeze on entering the
-picker points at loading the mod, a freeze on opening the Yes / No menu at the hooks, and
-leftover graphics after closing the editor at the redraw.
+picker points at loading the mod, a freeze on opening the Yes / No menu at the hooks,
+leftover graphics after closing the editor at the redraw, and a wrong or missing trainer
+picture before a battle at the pictures' new directory.
 
 ## Building
 
@@ -240,7 +250,9 @@ The mod leaves the decompilation's sources untouched. Its code is one new overla
 in an unused part of the ROM, and eight functions of the entry screen are replaced by
 jumps into it. Six more, on the screen that introduces a battle and shows its result,
 have a few instructions changed in place so that they use the chosen trainer picture,
-name and title. [NOTES.md](NOTES.md) has the details.
+name and title. The trainer pictures get a second directory, in another unused part of
+the ROM, that gives each face a number of its own; no picture is moved or changed.
+[NOTES.md](NOTES.md) has the details.
 
 This is built on [michiiik/pokestadiumgs](https://github.com/michiiik/pokestadiumgs), a
 fork of [pret/pokestadiumgs](https://github.com/pret/pokestadiumgs). Move legality comes

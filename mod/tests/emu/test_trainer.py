@@ -11,8 +11,10 @@ from harness import DOWN, LEFT, RIGHT, UP, EditState, Menu, TrainerState, press,
 
 STOCK_ENTRIES = 5    # OK, OK to Register, Reselect some, Reselect all, Change Item
 MOD_ENTRIES = 2      # Edit POKeMON, Change Trainer
-LAST = h.NUM_PICTURES   # the last picture; 0 is the game's own
+LAST = h.NUM_TRAINERS - 1   # the last trainer, and the one before the game's own in the ring
 CAL = (0x14, 2)      # the first opponent of Free Battle, as the game pictures him
+C_LEFT, C_RIGHT = "C Left", "C Right"
+NUMBERS = h.picture_numbers() if h.AVAILABLE else []
 GYM_LEADER, RIVAL = 0x28, 0x2A   # titles, by number; the last two the window steps through
 # From the entry screen with the team menu on OK: OK, then the COM's team the same way,
 # which leads to the opponent's introduction. That screen loads both sides' pictures for
@@ -33,14 +35,23 @@ TYPE_ASH = (press(DOWN) + press("A", 20) + press("A") + presses(DOWN, 2) + press
 
 
 def picture_for(choice: int) -> bytes:
-    """What the window shows for a choice: the game's own, or a trainer looking ahead."""
-    return h.trainer_picture(*h.DEFAULT_PICTURE) if choice == 0 else h.trainer_picture(choice - 1, 0)
+    """What the window shows for a choice: the game's own, or the picture of that number."""
+    return h.trainer_picture(*(h.DEFAULT_PICTURE if choice == 0 else NUMBERS[choice - 1]))
+
+
+def shown(trainer: int, face: int = None) -> int:
+    """The choice a trainer's picture is; without `face`, the one the window shows first."""
+    return h.picture_choice(trainer, face)
 
 
 @unittest.skipUnless(h.AVAILABLE, h.SKIP_REASON)
 class TrainerTest(h.EmulatorTest):
     def assertShows(self, choice: int) -> None:
-        self.assertEqual(self.s.trainer_state().choice, choice)
+        state = self.s.trainer_state()
+        self.assertEqual(state.choice, choice)
+        # The window knows whose picture it is and which of theirs: 0 for the game's own.
+        whose = (0, 0) if choice == 0 else (NUMBERS[choice - 1][0] + 1, NUMBERS[choice - 1][1])
+        self.assertEqual((state.trainer, state.face), whose)
         self.assertEqual(self.s.trainer_picture(), picture_for(choice), f"choice {choice}")
 
     def test_team_menu_has_one_more_entry(self):
@@ -66,10 +77,64 @@ class TrainerTest(h.EmulatorTest):
         self.assertShows(0)
         screens.check(self, "trainer_window", self.s.shot("trainer_window"), screens.TRAINER)
 
-        for button, choice in ((LEFT, LAST), (RIGHT, 0), (RIGHT, 1), (RIGHT, 2), (LEFT, 1)):
+        # Left and Right go round the trainers, each on the picture the window shows first.
+        for button, choice in ((LEFT, shown(LAST)), (RIGHT, 0), (RIGHT, shown(0)), (RIGHT, shown(1)),
+                               (LEFT, shown(0))):
             self.do(*press(button))
             self.assertShows(choice)
         self.assertEqual(self.s.trainer_choices(), [0, 0, 0, 0], "nothing is kept before A")
+
+    def test_c_buttons_go_round_a_trainers_pictures(self):
+        # The game's own choice is one picture, so there is nothing to go round.
+        self.start(*h.OPEN_TRAINER, *press(C_RIGHT), *press(C_LEFT))
+        self.assertShows(0)
+
+        # The first trainer has three, and the window starts on the second.
+        self.assertEqual(h.trainer_faces(0), (3, 1))
+        self.do(*press(RIGHT))
+        self.assertShows(shown(0, 1))
+        screens.check(self, "trainer_faces", self.s.shot("trainer_faces"), screens.TRAINER)
+        for button, face in ((C_RIGHT, 2), (C_RIGHT, 0), (C_LEFT, 2), (C_LEFT, 1), (C_LEFT, 0)):
+            self.do(*press(button))
+            self.assertShows(shown(0, face))
+
+        # They do the same with the cursor on the name or the title, and move nothing else.
+        self.do(*press(DOWN), *press(C_RIGHT))
+        self.assertShows(shown(0, 1))
+        self.do(*press(DOWN), *press(C_RIGHT))
+        self.assertShows(shown(0, 2))
+        state = self.s.trainer_state()
+        self.assertEqual((state.row, state.title_text), (TrainerState.ROW_TITLE, b"POK\xe9MON TRAINER"))
+
+        # A trainer with one picture: the sixth.
+        self.assertEqual(h.trainer_faces(5), (1, 0))
+        self.do(*press(DOWN), *presses(RIGHT, 5), *press(C_RIGHT), *press(C_LEFT))
+        self.assertShows(shown(5))
+        self.assertEqual(self.s.trainer_choices(), [0, 0, 0, 0], "nothing is kept before A")
+
+    def test_every_picture_of_every_trainer_can_be_chosen(self):
+        self.start(*h.OPEN_TRAINER)
+        base, _ = self.s.fragment(h.MOD_VRAM)
+        state = base + self.s.trainer_offset
+        # Round the whole ring, and at each trainer round all of its pictures: what the
+        # window holds after every press, read in one go.
+        look = [f"read {state + 3:08X} 1", f"read {state + TrainerState.PICTURE:08X} {h.PICTURE_BYTES}"]
+        commands, expected = [], []
+        for trainer in range(h.NUM_TRAINERS):
+            count, first = h.trainer_faces(trainer)
+            commands += press(RIGHT) + look
+            expected.append(shown(trainer, first))
+            for step in range(1, count + 1):
+                commands += press(C_RIGHT) + look
+                expected.append(shown(trainer, (first + step) % count))
+        data = bytes.fromhex("".join(line.split(":", 1)[1] for line in self.s.run(*commands)))
+        size = 1 + h.PICTURE_BYTES
+        self.assertEqual(len(data), size * len(expected))
+        for index, choice in enumerate(expected):
+            held = data[index * size:(index + 1) * size]
+            self.assertEqual(held[0], choice, index)
+            self.assertEqual(held[1:], picture_for(choice), f"choice {choice}")
+        self.assertEqual(sorted(set(expected)), list(range(1, len(NUMBERS) + 1)), "every number was shown")
 
     def test_rows_and_titles_go_round(self):
         self.start(*h.OPEN_TRAINER)
@@ -102,8 +167,12 @@ class TrainerTest(h.EmulatorTest):
         self.assertEqual((state.name, state.title_text), (b"", b"POK\xe9MON TRAINER"))
 
     def test_a_chosen_picture_is_remembered_and_used(self):
-        self.start(*h.OPEN_TRAINER, *presses(LEFT, 3), *press("A", 40))
-        choice = LAST - 2
+        # The last trainer's second picture, which is not the one the window starts on,
+        # and whose number is past what a signed byte holds.
+        self.start(*h.OPEN_TRAINER, *press(LEFT), *press(C_LEFT), *press("A", 40))
+        choice = shown(LAST, 1)
+        self.assertNotEqual(choice, shown(LAST))
+        self.assertGreater(choice - 1, 0x7F)
         self.assertEqual(self.s.trainer_state().open, 0)
         self.assertEqual(self.s.trainer_choices(), [choice, 0, 0, 0])
 
@@ -200,7 +269,7 @@ class TrainerTest(h.EmulatorTest):
     def test_nothing_outlasts_the_power(self):
         self.start(*h.OPEN_TRAINER, *press(RIGHT), *TYPE_ASH, *press(DOWN), *press(LEFT), *press("A", 40))
         self.assertEqual((self.s.trainer_choices(), self.s.trainer_titles()[0], self.s.trainer_names()[0]),
-                         ([1, 0, 0, 0], RIVAL, b"ASH"))
+                         ([shown(0), 0, 0, 0], RIVAL, b"ASH"))
         self.s.reboot()
         self.assertEqual((self.s.trainer_choices(), self.s.trainer_titles(), self.s.trainer_names()),
                          ([0] * 4, [h.PLAYER_TITLE] * 4, [b""] * 4))
@@ -216,7 +285,7 @@ class TwoPlayerTrainerTest(h.EmulatorTest):
         self.assertEqual((state.open, state.controller, state.port), (1, 1, 1))
 
         # Controller 1 has no say in it, in the window or on the keyboard.
-        everything = press(RIGHT) + press(DOWN) + press("A") + press("B") + press("Start")
+        everything = press(RIGHT) + press(C_RIGHT) + press(DOWN) + press("A") + press("B") + press("Start")
         self.do("player 1", *everything)
         state = self.s.trainer_state()
         self.assertEqual((state.open, state.choice, state.row), (1, 0, TrainerState.ROW_PICTURE))
@@ -224,17 +293,19 @@ class TwoPlayerTrainerTest(h.EmulatorTest):
         state = self.s.trainer_state()
         self.assertEqual((state.typing, state.name), (1, b""))
 
-        self.do("player 2", *press("B", 20), *press(UP), *presses(RIGHT, 2), *TYPE_ASH, *press(DOWN),
-                *press("A", 40))
-        self.assertEqual(self.s.trainer_choices(), [0, 2, 0, 0])
+        self.do("player 2", *press("B", 20), *press(UP), *presses(RIGHT, 2), *press(C_RIGHT), *TYPE_ASH,
+                *press(DOWN), *press("A", 40))
+        choice = shown(1, 0)
+        self.assertEqual(h.trainer_faces(1), (3, 2))
+        self.assertEqual(self.s.trainer_choices(), [0, choice, 0, 0])
         self.assertEqual(self.s.trainer_names(), [b"", b"ASH", b"", b""])
 
         # Player 1 left theirs alone and keeps the game's; player 2 has trainer 1 and a name.
         self.do(*press("A", 240), "player 1", "wait 160")
-        self.assertEqual(self.s.intro(), (INTRO, [YOU, picture_for(2)]))
+        self.assertEqual(self.s.intro(), (INTRO, [YOU, picture_for(choice)]))
         self.assertEqual(self.s.battle_names(), [b"1P", b"ASH"])
         self.do(*press("A", 360))
-        self.assertEqual(self.s.battle_pictures(), [h.DEFAULT_PICTURE, (1, 0)])
+        self.assertEqual(self.s.battle_pictures(), [h.DEFAULT_PICTURE, (choice - 1, 0)])
 
 
 if __name__ == "__main__":

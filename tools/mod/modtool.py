@@ -25,6 +25,9 @@ mod/stock_patches.txt lists single instructions to replace, in any fragment, as
 mod/asm_patches.txt does for moved functions. Such an instruction may not be one the
 fragment loader relocates.
 
+The trainer pictures get a second directory, which gives each of a trainer's pictures a
+number of its own; see gen_trainer_faces.py.
+
     modtool.py asm <hooks> <asm-dir> <out-dir>      write entry.s, moved.s and patched.s
     modtool.py inject --mod-elf E --game-elf G --rom R --hooks H --asm-dir A --out O
                       [--patched-obj P]
@@ -39,6 +42,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import fragment_relocs as fr  # noqa: E402
+import gen_trainer_faces  # noqa: E402
 from check_rom import HOLE_END, HOLE_START  # noqa: E402
 
 MOD_FRAGMENT_ID = 0x40
@@ -402,11 +406,13 @@ def inject(mod_elf: fr.Elf, game_elf: fr.Elf, rom: bytearray, hooks: list, asm_d
     rom[table_at:table_at + 4 * (len(table) + 1)] = fr.pack_table(kept).ljust(4 * (len(table) + 1), b"\0")
 
     patched_count = apply_stock_patches(rom, game_elf, patched, stock_patches or {}, asm_dir)
+    pictures = gen_trainer_faces.install(rom)
 
     update_checksum(rom)
     return {"rom_start": rom_start, "rom_end": rom_end, "size": len(fragment),
             "relocations": struct.unpack_from(">I", fragment, len(mod_elf.contents(mod_elf.by_name[MOD_SECTION])))[0],
-            "removed": len(table) - len(kept), "hooks": len(hooks), "patched": patched_count}
+            "removed": len(table) - len(kept), "hooks": len(hooks), "patched": patched_count,
+            "pictures": pictures}
 
 
 def main() -> int:
@@ -443,6 +449,7 @@ def main() -> int:
           f"{info['relocations']} relocations")
     print(f"hooks: {info['hooks']} thunks written, {info['removed']} stock relocation entries removed")
     print(f"stock code: {info['patched']} instructions changed in place")
+    print(f"trainer pictures: {info['pictures']} numbered, in a directory at ROM {gen_trainer_faces.DIRECTORY_ROM:#x}")
     print(f"wrote {args.out}")
     return 0
 

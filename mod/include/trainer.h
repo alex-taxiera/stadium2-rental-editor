@@ -23,7 +23,7 @@ typedef struct TrainerState {
     /* 0x00 */ u8 open;       /* the trainer window is up, in place of the team menu */
     /* 0x01 */ u8 controller; /* whose pad drives it */
     /* 0x02 */ u8 port;       /* whose picture, name and title it changes */
-    /* 0x03 */ u8 choice;     /* the picture, as in gTrainerChoices: 0, or a trainer's number plus one */
+    /* 0x03 */ u8 choice;     /* the picture, as in gTrainerChoices: 0, or its number plus one */
     /* 0x04 */ u8 repeatTimer;
     /* 0x05 */ u8 row;
     /* 0x06 */ u16 bracketPhase;
@@ -40,7 +40,9 @@ typedef struct TrainerState {
     /* 0x2093 */ u8 titleStart;  /* where in `titleText` the title begins: a read starts on an even address */
     /* 0x2094 */ char name[TRAINER_NAME_BYTES]; /* empty for the name the game would give */
     /* 0x209C */ u8 extras;      /* which entries `menu` was given: TEAM_MENU_EDIT, TEAM_MENU_TRAINER */
-    /* 0x209D */ u8 unk209D[3];
+    /* 0x209D */ u8 trainer;     /* whose picture: 0 for the game's own choice, else a trainer's number plus one */
+    /* 0x209E */ u8 face;        /* which of that trainer's pictures */
+    /* 0x209F */ u8 unk209F;
     /* 0x20A0 */ char titleText[TRAINER_TITLE_BYTES];
 } TrainerState; /* size = 0x20C0 */
 

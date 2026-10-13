@@ -10,6 +10,7 @@ mod/include; the editor's own state is found through the mod's ELF.
 """
 
 import atexit
+import functools
 import re
 import struct
 import sys
@@ -21,6 +22,7 @@ sys.path.insert(0, str(REPO_ROOT / "tools" / "mod"))
 
 import emu  # noqa: E402
 import fragment_relocs as fr  # noqa: E402
+import gen_trainer_faces  # noqa: E402
 from check_rom import HOLE_START  # noqa: E402
 
 TEST_DIR = REPO_ROOT / ".emu" / "test"
@@ -64,8 +66,8 @@ TRAINER_NAMES = 0x80000334     # gTrainerNames: eight bytes per port
 PLAYER_TITLE = 0x29            # POKeMON TRAINER
 INTRO_NAMES = 0x8D0            # in what the session's SESSION_INTRO points to: twelve bytes a side
 PICKER_PARTY_NAME = 0x15370 + 0x11   # in the picker's state: the name of the team being chosen
-PICTURES_ROM = 0x02268000      # the archive of trainer pictures
-NUM_PICTURES = 67
+PICTURES_ROM = 0x02268000      # the archive of trainer pictures, where the original ROM has it
+NUM_TRAINERS = 67
 PICTURE_BYTES = 0x2008
 DEFAULT_PICTURE = (0x40, 1)    # what the game gives a human: trainer, expression
 
@@ -104,6 +106,26 @@ def trainer_picture(trainer: int, expression: int) -> bytes:
         offsets = struct.unpack(f">{count}I", f.read(4 * count))
         f.seek(entry + offsets[expression] - 8)
         return f.read(PICTURE_BYTES)
+
+
+@functools.lru_cache(maxsize=None)
+def picture_numbers() -> list:
+    """(trainer, face) for every number a picture has in the mod's directory of them."""
+    return gen_trainer_faces.numbers(BASE_ROM.read_bytes())
+
+
+def trainer_faces(trainer: int) -> tuple:
+    """(how many pictures a trainer has, which one the window shows first)."""
+    count = sum(1 for listed, _ in picture_numbers() if listed == trainer)
+    return count, gen_trainer_faces.default_face(trainer, count)
+
+
+def picture_choice(trainer: int, face: int = None) -> int:
+    """A trainer's picture as a choice is kept: its number plus one. Without `face`, the
+    one the window shows first."""
+    if face is None:
+        face = trainer_faces(trainer)[1]
+    return picture_numbers().index((trainer, face)) + 1
 
 
 def stat_exp_term(stat_exp: int) -> int:
@@ -229,6 +251,7 @@ class TrainerState:
         self.open, self.controller, self.port, self.choice = data[0], data[1], data[2], data[3]
         self.row = data[5]
         self.typing, self.title = rest[0], rest[1]
+        self.trainer, self.face = rest[0xD], rest[0xE]
         self.name = rest[4:12].split(b"\0")[0]
         self.title_text = rest[0x10 + rest[3]:].split(b"\0")[0]
 

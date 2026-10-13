@@ -24,6 +24,10 @@ MAGIC_N64 = bytes.fromhex("40123780")
 # Unused 0xFF padding the mod fragment is injected into (see mod/NOTES.md).
 HOLE_START = 0x16061C0
 HOLE_END = 0x1638000
+# And the padding in front of the trainer pictures, where the mod puts a directory of
+# them (see tools/mod/gen_trainer_faces.py).
+PICTURES_START = 0x225A820
+PICTURES_END = 0x2268000
 
 
 def to_z64(data: bytes) -> bytes:
@@ -78,6 +82,12 @@ def main() -> int:
     else:
         used = len(hole) - hole.count(0xFF)
         print(f"hole:    WARNING {used} non-0xFF bytes in {HOLE_START:#x}-{HOLE_END:#x}")
+    pad = rom[PICTURES_START:PICTURES_END]
+    if pad.count(0xFF) == len(pad):
+        print(f"         {PICTURES_START:#x}-{PICTURES_END:#x} is all 0xFF ({len(pad)} bytes free)")
+    else:
+        used = len(pad) - pad.count(0xFF)
+        print(f"         WARNING {used} non-0xFF bytes in {PICTURES_START:#x}-{PICTURES_END:#x}")
 
     if not args.verify_only:
         args.dest.parent.mkdir(parents=True, exist_ok=True)

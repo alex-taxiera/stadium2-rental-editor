@@ -1,15 +1,21 @@
 #include "edit.h"
 #include "trainer.h"
 
+#include "trainer_faces.inc.c"
 #include "trainer_titles.inc.c"
 
 #define NUM_TITLES ((s32)sizeof(sTrainerTitles))
+
+/* What sTrainerFaces has for a trainer. */
+enum { FACE_COUNT, FACE_SECOND, FACE_DEFAULT };
 
 /* The trainer window, over where the team menu was: the picture on the left with its
  * place in the ring under it, the name and title on the right, and under them a line of
  * key hints as My Room has one: a button's picture, then what it does. The picture and
  * the title go round on Left and Right, so whichever the cursor is on has an arrow
- * either side: of the picture's place in the ring, and of the brackets round the title. */
+ * either side: of the picture's place in the ring, and of the brackets round the title.
+ * A trainer with more than one picture has them on C Left and C Right, wherever the
+ * cursor is, and the hints say so. */
 #define WINDOW_WIDTH 420
 #define WINDOW_HEIGHT 196
 #define WINDOW_X ((640 - WINDOW_WIDTH) / 2)
@@ -51,6 +57,7 @@ static char sName[] = "NAME";
 static char sTitle[] = "TITLE";
 static char sSlash[] = "/";
 static char sHintType[] = "Type";
+static char sHintFace[] = "Face";
 
 /* The controller port of the side whose team is being chosen, negative for the COM. */
 static s32 Trainer_SidePort(u8 *state) {
@@ -61,23 +68,57 @@ static u8 *Trainer_EntryState(Menu *menu) {
     return (u8 *)menu - ENTRY_STATE_MENU;
 }
 
-/* Reads the picture for the current choice from the ROM: the directory entry of its
- * trainer, the trainer's table of expressions, then the pixels. */
+/* The number one of a trainer's pictures has in the mod's directory of them. */
+static s32 Trainer_PictureNumber(s32 trainer, s32 face) {
+    return face == 0 ? trainer : sTrainerFaces[trainer][FACE_SECOND] + face - 1;
+}
+
+/* How many pictures there are of the window's trainer. The game's own choice is one. */
+static s32 Trainer_FaceCount(TrainerState *state) {
+    return state->trainer == 0 ? 1 : sTrainerFaces[state->trainer - 1][FACE_COUNT];
+}
+
+/* Reads the picture for the current choice from the ROM: its entry in the directory,
+ * the block that leads to, where the picture is the first, then the pixels. */
 static void Trainer_LoadPicture(TrainerState *state) {
-    s32 trainer = DEFAULT_TRAINER_PICTURE;
-    s32 expression = DEFAULT_TRAINER_EXPRESSION;
+    s32 number = Trainer_PictureNumber(DEFAULT_TRAINER_PICTURE, DEFAULT_TRAINER_EXPRESSION);
     u32 rom;
 
     if (state->choice != 0) {
-        trainer = state->choice - 1;
-        expression = 0;
+        number = state->choice - 1;
     }
-    rom = TRAINER_PICTURES_ROM + 0x10 + trainer * 0x10;
+    rom = TRAINER_PICTURES_ROM + 0x10 + number * 0x10;
     Rom_Read(state->header, rom, rom + 0x10, 0);
     rom = TRAINER_PICTURES_ROM + state->header[0];
     Rom_Read(state->header, rom, rom + 0x10, 0);
-    rom += state->header[1 + expression] - 8;
+    rom += state->header[1] - 8;
     Rom_Read(state->picture, rom, rom + TRAINER_PICTURE_BYTES, 0);
+}
+
+/* The window's trainer and picture as a choice, with that picture loaded. */
+static void Trainer_ShowChoice(TrainerState *state) {
+    state->choice = state->trainer == 0 ? 0 : Trainer_PictureNumber(state->trainer - 1, state->face) + 1;
+    Trainer_LoadPicture(state);
+}
+
+/* Whose picture a kept choice is, and which of theirs. */
+static void Trainer_FindChoice(TrainerState *state) {
+    s32 trainer;
+    s32 face;
+
+    state->trainer = 0;
+    state->face = 0;
+    if (state->choice == 0) {
+        return;
+    }
+    for (trainer = 0; trainer < NUM_TRAINERS; trainer++) {
+        for (face = 0; face < sTrainerFaces[trainer][FACE_COUNT]; face++) {
+            if (Trainer_PictureNumber(trainer, face) == state->choice - 1) {
+                state->trainer = trainer + 1;
+                state->face = face;
+            }
+        }
+    }
 }
 
 /* Reads the current title's text from the ROM: its offset in the bank, then the text. */
@@ -180,6 +221,7 @@ static void Trainer_Open(TrainerState *state, Menu *menu, s32 controller) {
     if (state->choice > NUM_TRAINER_PICTURES) {
         state->choice = 0;
     }
+    Trainer_FindChoice(state);
     title = gTrainerTitles[state->port] ^ PLAYER_TRAINER_TITLE;
     state->title = 0;
     for (i = 0; i < NUM_TITLES; i++) {
@@ -227,6 +269,7 @@ static void Trainer_Update(TrainerState *state, Pad *pad) {
     s32 buttons;
     s32 step = 0;
     s32 status;
+    s32 faces;
     s32 i;
 
     if (state->typing) {
@@ -258,6 +301,15 @@ static void Trainer_Update(TrainerState *state, Pad *pad) {
         }
         return;
     }
+    if (pad->pressed & (BTN_CLEFT | BTN_CRIGHT)) {
+        faces = Trainer_FaceCount(state);
+        if (faces > 1) {
+            state->face = Trainer_Step(state->face, pad->pressed & BTN_CRIGHT ? 1 : -1, faces);
+            Trainer_ShowChoice(state);
+            Sound_Play(SOUND_CURSOR);
+        }
+        return;
+    }
     if (pad->pressed & BTN_DUP) {
         state->row = Trainer_Step(state->row, -1, NUM_TRAINER_ROWS);
         Sound_Play(SOUND_CURSOR);
@@ -277,11 +329,12 @@ static void Trainer_Update(TrainerState *state, Pad *pad) {
     if (step == 0 || state->row == TRAINER_NAME) {
         return;
     }
-    /* The pictures run in a ring, the game's own and then every trainer; the titles
-     * likewise, the player's own first. */
+    /* The pictures run in a ring, the game's own and then every trainer, each as the
+     * window shows them first; the titles likewise, the player's own first. */
     if (state->row == TRAINER_PICTURE) {
-        state->choice = Trainer_Step(state->choice, step, NUM_TRAINER_PICTURES + 1);
-        Trainer_LoadPicture(state);
+        state->trainer = Trainer_Step(state->trainer, step, NUM_TRAINERS + 1);
+        state->face = state->trainer == 0 ? 0 : sTrainerFaces[state->trainer - 1][FACE_DEFAULT];
+        Trainer_ShowChoice(state);
     } else {
         state->title = Trainer_Step(state->title, step, NUM_TITLES);
         Trainer_LoadTitle(state);
@@ -445,8 +498,13 @@ static void Trainer_DrawWindow(TrainerState *state) {
     char buffer[12];
     char *number;
     s32 middle = x + PICTURE_X + TRAINER_PICTURE_SIZE / 2;
-    /* The two hints go in the middle of the window together. */
-    s32 confirmX = x + (WINDOW_WIDTH - Trainer_HintWidth(confirm) - HINT_SPACING - Trainer_HintWidth(quit)) / 2;
+    /* The hints go in the middle of the window together, B last as in My Room. The one
+     * for a trainer's other pictures has two buttons before its word. */
+    s32 faces = Trainer_FaceCount(state) > 1;
+    s32 faceWidth = faces ? BUTTON_SIZE + Trainer_HintWidth(sHintFace) + HINT_SPACING : 0;
+    s32 hintsWidth = faceWidth + Trainer_HintWidth(confirm) + HINT_SPACING + Trainer_HintWidth(quit);
+    s32 faceX = x + (WINDOW_WIDTH - hintsWidth) / 2;
+    s32 confirmX = faceX + faceWidth;
     s32 quitX = confirmX + Trainer_HintWidth(confirm) + HINT_SPACING;
 
     Window_Draw(x, y, WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -466,6 +524,10 @@ static void Trainer_DrawWindow(TrainerState *state) {
     }
     gSPDisplayList(gDisplayListHead++, D_80094E38);
     Image_Draw(x + PICTURE_X, y + PICTURE_Y, state->picture, 0, 0);
+    if (faces) {
+        Edit_DrawButton(faceX, y + HINT_Y - BUTTON_RISE, BUTTON_C_LEFT);
+        Edit_DrawButton(faceX + BUTTON_SIZE, y + HINT_Y - BUTTON_RISE, BUTTON_C_RIGHT);
+    }
     Edit_DrawButton(confirmX, y + HINT_Y - BUTTON_RISE, BUTTON_A);
     Edit_DrawButton(quitX, y + HINT_Y - BUTTON_RISE, BUTTON_B);
     /* The brackets move in and out by 2, and the arrows stay clear of them. */
@@ -484,12 +546,12 @@ static void Trainer_DrawWindow(TrainerState *state) {
     Text_Draw(x + LABEL_X, y + NAME_Y, sName);
     Text_Draw(x + LABEL_X, y + TITLE_ROW_Y, sTitle);
 
-    /* The picture's place in its ring, e.g. 12/68, around a slash under its middle. */
+    /* The trainer's place in the ring, e.g. 12/68, around a slash under the picture's middle. */
     Trainer_RowColor(state, TRAINER_PICTURE);
-    number = Trainer_Digits(&buffer[11], state->choice + 1);
+    number = Trainer_Digits(&buffer[11], state->trainer + 1);
     Text_Draw(middle - 3 - Text_Width(MENU_FONT, 1, number), y + COUNT_Y, number);
     Text_Draw(middle - 3, y + COUNT_Y, sSlash);
-    Text_Draw(middle + 5, y + COUNT_Y, Trainer_Digits(&buffer[11], NUM_TRAINER_PICTURES + 1));
+    Text_Draw(middle + 5, y + COUNT_Y, Trainer_Digits(&buffer[11], NUM_TRAINERS + 1));
 
     /* A name the player has not given is the game's, in grey unless the cursor is on it. */
     if (state->row != TRAINER_NAME && state->name[0] == '\0') {
@@ -502,6 +564,9 @@ static void Trainer_DrawWindow(TrainerState *state) {
     Text_Draw(x + VALUE_X, y + TITLE_ROW_Y, title);
 
     Text_SetColor(0xFF, 0xFF, 0xFF, 0xFF);
+    if (faces) {
+        Text_Draw(faceX + 2 * BUTTON_SIZE + BUTTON_GAP, y + HINT_Y, sHintFace);
+    }
     Text_Draw(confirmX + BUTTON_SIZE + BUTTON_GAP, y + HINT_Y, confirm);
     Text_Draw(quitX + BUTTON_SIZE + BUTTON_GAP, y + HINT_Y, quit);
     Text_End();
