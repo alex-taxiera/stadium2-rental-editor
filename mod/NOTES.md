@@ -875,6 +875,11 @@ the new name.
 2026-10-11, `e06da865` → `e82d7f7`: both comparisons empty, no conflicts, the stock ROM
 matched, and the mod ROM and patch were byte for byte the same as before.
 
+2026-10-13, `e82d7f7` → `3bda6f8b`: the first comparison lists only two upstream CI
+workflows, the second is empty, and the rebase had no conflicts. 61 functions were
+decompiled, none of them hooked, patched or called by the mod, and no symbol was renamed.
+The tool tests pass; not yet rebuilt or run in the emulator (no ROM in that checkout).
+
 ## Releases
 
 A release is the patch and nothing else: never a ROM, patched or not, and nothing made
