@@ -5,7 +5,7 @@ you pick a rental Pokémon. It opens an editor for the rental's nickname, moves,
 happiness, DVs and Stat Exp, limited to what the Game Boy games allow, and the edited
 Pokémon is what enters the battle or the registered team. A rental already on your team
 can be edited again where it is, and you can choose your own trainer picture, name and
-title.
+title. The rules get three move clauses, and Free Battle a rule set that has them.
 
 | | |
 |---|---|
@@ -17,6 +17,8 @@ title.
 | Start on a chosen team: **Edit POKéMON** and **Change Trainer** join the game's own entries. | Edit POKéMON opens the editor on a rental that is already on the team. |
 | ![The trainer window: a picture, the name ASH and the title GYM LEADER](../mod/images/trainer.png) | ![Before a battle: the player as GYM LEADER ASH](../mod/images/versus.png) |
 | Change Trainer: any of the game's trainer pictures, a name and a title. | They are yours on the screens before and after a battle. |
+| ![Diglett under OU Rules: Yes and FISSURE greyed out, the hand on EDIT](../mod/images/clause.png) | ![RULE EDIT's page for a rule set, with three questions about moves](../mod/images/rule_edit.png) |
+| **OU Rules** in Free Battle: a Pokémon with a move the rules keep out cannot be entered until it is edited. | The same clauses for a rule set of your own, in RULE EDIT. |
 
 ## Getting it
 
@@ -54,8 +56,15 @@ taking it off: nothing changed earlier is lost.
 with whichever of their faces you like, a name in place of 1P, and a title in place of
 POKéMON TRAINER, until the console is switched off.
 
+**Move clauses** are rules about the moves a Pokémon may know: no Double Team or
+Minimize; no Fissure, Guillotine or Horn Drill; no Baton Pass together with Mean Look or
+Spider Web. **OU Rules**, on the list Free Battle's "Edit Rules" opens, is Anything Goes
+with all three and without Mewtwo, Mew, Lugia, Ho-Oh and Celebi. RULE EDIT, under
+OPTIONS, can give a rule set of your own any of the three.
+
 It works in Free Battle and when registering a team, for either player, with or without
-an Expansion Pak, and a registered team keeps its edits. The save format is untouched.
+an Expansion Pak, and a registered team keeps its edits. The save file is laid out as the
+original's.
 
 The current release has been run on a real Nintendo 64, and tested in BizHawk with its
 Ares64 core.

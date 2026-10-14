@@ -46,6 +46,14 @@ VERSUS = (70, 60, 160, 150)
 VERSUS_LABEL = (56, 178, 186, 234)
 # The box in the detail panel that shows the Pokemon's 3D model.
 MODEL = (80, 296, 138, 354)
+# The detail panel's four moves, each beside the C button that checks it.
+PANEL_MOVES = (78, 366, 372, 440)
+# The rule viewer's box for what is behind a line, when the line has four rows of it.
+VIEWER = (70, 190, 570, 330)
+# RULE EDIT's page for one rule set, without the hand that points at a row.
+RULE_PAGE = (128, 104, 556, 450)
+# A registered team's menu, OK / Select again / Check, without the hand that points.
+SET_MENU = (286, 322, 396, 408)
 
 
 def read_png(path: Path, last_row: int = None) -> tuple:

@@ -1,5 +1,5 @@
 # SHA-1 of the original ROM and of what tools/mod/wsl_build.sh mod builds from it.
 # Checked by tools/mod/checksums.py; see mod/NOTES.md, "Tests".
 d8343e69a7dc63b869cf6361d87cde64444281d3  baseroms/us/baserom.z64
-fa68ee04cfcbf383bed1dd6820383394216ecaf3  build/pokestadiumgs-us-mod.z64
-0d034860367435d6fee2b099bcf4ae8ebe2900ad  build/stadium2-rental-editor-us.bps
+a5e30ea5d2f19dee80bdaebc8a0d14b4def37b4f  build/pokestadiumgs-us-mod.z64
+26ef8f6ea51687bd69651b5ffb075bd7677ad61f  build/stadium2-rental-editor-us.bps

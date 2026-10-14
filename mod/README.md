@@ -3,7 +3,8 @@
 A patch for Pokémon Stadium 2 (USA) that adds an **EDIT** entry to the menu shown when
 you pick a rental Pokémon. It opens an editor for the rental's nickname, moves, level,
 happiness, DVs and Stat Exp, limited to what the Game Boy games allow, and the edited
-Pokémon is what enters the battle or the registered team.
+Pokémon is what enters the battle or the registered team. It also gives the game's rules
+three move clauses, and Free Battle a rule set that has them.
 
 ![The editor open on a rental Abra](images/editor.png)
 
@@ -32,7 +33,9 @@ A BPS patch carries checksums of the ROM it expects and of the result, so a patc
 refuses the wrong ROM and tells you if the output is wrong. `bps.py info <patch>` prints
 both.
 
-The save format is untouched. The header keeps the game ID `NP3E`, which is what ares and
+The save file is laid out as the original's. One thing in it is new: a rule set of your
+own keeps its move clauses in a byte of its saved form that the original leaves empty
+(see "Rule sets and move clauses"). The header keeps the game ID `NP3E`, which is what ares and
 most flashcart firmware use to choose the save type (Flash RAM). The header checksum does
 change, so anything that looks the game up by checksum will not recognise it; set Flash
 RAM by hand there.
@@ -137,6 +140,49 @@ included.
 A registered team keeps its edits. A trainer's picture, name and title are not saved:
 they last until the console is switched off.
 
+## Rule sets and move clauses
+
+The game's rules say which Pokémon may enter, at what levels and with what items. The
+patch lets a rule set also keep moves out, by three clauses:
+
+- **Evasion**: no Double Team or Minimize.
+- **One-hit KO**: no Fissure, Guillotine or Horn Drill.
+- **Baton Pass with trapping**: no Pokémon may know Baton Pass together with Mean Look
+  or Spider Web. Either alone is fine.
+
+**OU Rules** is a rule set with all three, in Free Battle: on "Please Select Rules" go
+down to **Edit Rules**, the last of the six, and it is on the list that opens, after any
+rule sets of your own. It is Anything Goes, with any number of Pokémon up to six, levels
+up to 100, held items, rentals, registered teams and one to four players, except that
+Mewtwo, Mew, Lugia, Ho-Oh and Celebi may not enter, as in the Poké Cup, and the three
+clauses hold. R on it, "Check Rules", lists what it says like any rule set; the last
+line, **Moves that cannot be known**, has the clauses behind it.
+
+![Diglett under OU Rules: Yes and FISSURE greyed out, the hand on EDIT](images/clause.png)
+
+Under a rule set with clauses:
+
+- The editor's list of moves leaves out what the clauses keep out, Baton Pass while the
+  Pokémon knows Mean Look or Spider Web in another slot, and those two while it knows
+  Baton Pass.
+- A Pokémon that knows such a move cannot be entered. Its menu opens with **Yes** greyed
+  out, as the game greys it for an item the rules reject, and the move's name is grey in
+  the panel under it. For a rental the hand starts on **EDIT**: change the move, and Yes
+  is back. ITEM is refused meanwhile, since choosing an item enters the Pokémon.
+- A registered team with such a Pokémon on it, or with one the rules keep out, cannot
+  be chosen: the **OK** of its menu is greyed out. **Check** shows its Pokémon, the move
+  in grey. The teams OU Rules offers are the ones registered under Anything Goes.
+
+A rule set of your own can have the clauses too. **RULE EDIT**, under OPTIONS, has
+three more questions on a rule set's page, after "Hold identical items?": **Use evasion
+moves?**, **Use one-hit KO moves?** and **Use BATON PASS with trapping?**, each answered
+"Use" or "Don't use" with A. They are saved with the rule set.
+
+![RULE EDIT's page for a rule set, with the three questions](images/rule_edit.png)
+
+As in the original, a rule set of your own is for Pokémon from a Game Pak: it takes no
+rentals, and three of six fight.
+
 ## Known limits
 
 - An edit belongs to the Pokémon's entry in the list. If you scroll the list a long way
@@ -150,6 +196,22 @@ they last until the console is switched off.
 - Outside the editor the game labels Hidden Power as Normal, as the original does.
 - Moves are checked one at a time. Combinations that cannot exist on one Pokémon in the
   Game Boy games are not rejected.
+- OU Rules is on the list of your own rule sets, which has eight places: with eight
+  rule sets of your own it is not offered. The six rule sets Free Battle starts with
+  fill their panel, so there is nowhere else for it.
+- OU Rules has the three move clauses and no others. Like Anything Goes it lets a
+  species be on a team twice, and an item; the sleep and freeze clause and the rule on
+  the last Pokémon are the game's own, in every battle.
+- The clauses are held to where a team is chosen, for both sides, the computer's team
+  being chosen there too. Nothing checks a battle: there is no other way for such a
+  move to get onto a team.
+- A rule set's clauses are in a byte of its saved form that the original game leaves
+  empty. The original shows such a rule set without them, and saving the rules there
+  loses them.
+- The clauses under a rule set of your own have not been tried on a Game Pak's Pokémon,
+  which is all such a rule set takes: there is no Game Pak in the tests. Nor, for the
+  same reason, has a registered team with Mewtwo or the like on it been tried under
+  OU Rules, no rental being one of the five.
 - The original trainer's name and ID stay as the rental has them.
 - Change Trainer has only been tried in Free Battle. A typed name shows there; the other
   modes name the player in code this does not change.
@@ -164,7 +226,7 @@ they last until the console is switched off.
 ## What has been tested
 
 Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts. Most of
-it is now an automated suite (`mod/tests/emu`, 47 scenarios) that plays the editor and
+it is now an automated suite (`mod/tests/emu`, 59 scenarios) that plays the editor and
 checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 
 - Moves, level, happiness, DVs and Stat Exp edited and carried into a battle.
@@ -186,12 +248,21 @@ checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 - The ITEM list holding all 42 items, and one from beyond the original six (Leftovers)
   entered with a rental.
 - EDIT from Free Battle and from Register POKéMON.
+- OU Rules: on Free Battle's list and in "Check Rules"; a rental refused for Fissure,
+  with Yes and the move greyed out and the cursor kept off Yes, and entered once the
+  move is edited away; Baton Pass and Spider Web each left out of the list of moves
+  beside the other, and a Pokémon with both refused; a registered team with Fissure on
+  it refused under OU Rules and chosen under Anything Goes; a battle begun under it;
+  and Anything Goes refusing nothing.
+- RULE EDIT: the three questions answered both ways, a rule set kept with two clauses,
+  and the same rule set on Free Battle's list with them after a power cycle.
 - Under Poké Cup rules the level stops at 50 and 55.
 - A second player editing with controller 2, with controller 1 ignored meanwhile.
 - A build made to believe the console has 4 MB of RAM (`tools/mod/make_4mb_rom.py`): the
-  entry screen keeps 160 KB of its memory pool free with the mod loaded, and the editor
+  entry screen keeps 120 KB of its memory pool free with the mod loaded, and the editor
   and keyboard allocate nothing; a chosen face is then shown where the two sides are set
-  against each other and on the order screen. (A battle on that build was run before
+  against each other and on the order screen. OU Rules, "Check Rules" and RULE EDIT on
+  that build too. (A battle on that build was run before
   the keyboard was added; the mod is unloaded by then.)
 - The original ROM still builds byte for byte from the same tree, and the patch applied
   to it reproduces the modified ROM.
@@ -225,14 +296,21 @@ Not tested: standalone ares, other emulators, the Stadium cups and Gym Leader Ca
 11. Two players: Free Battle → 1P vs 2P. Player 2 edits with controller 2.
 12. Start → **OK to Register**, switch the console off and on, and load the team from
     Registered POKéMON.
-13. Repeat steps 3–9 with the Expansion Pak removed (or fitted, whichever you did not
-    start with).
+13. Free Battle → 1P vs COM → **Edit Rules** → **OU Rules**. R shows its rules, the last
+    line being "Moves that cannot be known". Then Rental Only: DIGLETT, the first of
+    the tenth row, opens with Yes and FISSURE greyed out. EDIT, change Fissure, B: Yes is back.
+14. OPTIONS → **RULE EDIT** → Make rules. The page has three questions about moves above
+    OK. Answer one "Don't use", OK, leave and save. The rule set should be in Free
+    Battle's list, with "Moves that cannot be known" under R.
+15. Repeat steps 3–9 and 13 with the Expansion Pak removed (or fitted, whichever you did
+    not start with).
 
 If something goes wrong, the useful details are the step, whether the Expansion Pak was
 fitted, the flashcart and its firmware, and what was on screen: a freeze on entering the
 picker points at loading the mod, a freeze on opening the Yes / No menu at the hooks,
 leftover graphics after closing the editor at the redraw, and a wrong or missing trainer
-picture before a battle at the pictures' new directory.
+picture before a battle at the pictures' new directory. A freeze on Free Battle's first
+screen, on "Check Rules" or on entering RULE EDIT points at loading the mod there.
 
 ## Building
 

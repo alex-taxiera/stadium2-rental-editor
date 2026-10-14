@@ -58,6 +58,7 @@ BASE_STATS = 0x8009830B        # per species, 22 bytes: HP, Attack, Defense, Spe
 MOVE_PP = 0x8009782E           # per move, 6 bytes: base PP at +0
 
 PICKER_MENU = 0x74             # in the picker's state: the popup menu
+PICKER_SIDE = 0x1A142          # and whose team is being chosen
 SESSION = 0x8009DF70           # D_8009DF70: what a battle and the screens before it share
 SESSION_INTRO, INTRO_PICTURES = 0x2C, 0x80   # in it, and in what that points to: each side's picture
 TRAINER_CHOICES = 0x80000358   # gTrainerChoices: a byte per controller port
@@ -70,6 +71,22 @@ PICTURES_ROM = 0x02268000      # the archive of trainer pictures, where the orig
 NUM_TRAINERS = 67
 PICTURE_BYTES = 0x2008
 DEFAULT_PICTURE = (0x40, 1)    # what the game gives a human: trainer, expression
+
+RULE_SELECT_VRAM = 0x83100000  # fragment 6: Free Battle's players, rule set and stage
+RULE_SELECT_STATE = 0x831039B0 # D_831039B0: at +0xCC the player's own rule sets, at +0x2EC how many
+VIEWER_VRAM = 0x82C00000       # fragment 83: what "Check Rules" shows
+VIEWER_STATE = 0x82C04C38      # D_82C04C38: at +3 how many lines, at +0x1C its heading, at +0x50 the lines
+VIEWER_LINE = 0x1CC            # a line: its title at +4, what is behind it at +0x54
+RULE_EDIT_VRAM = 0x82D00000    # fragment 82: RULE EDIT
+RULE_EDIT_PAGE = 0x82D23830    # D_82D23830: what it shows, the cursor's row, and at +0xC0 the rule set on its page
+RULE_EDIT_OWN = 0x82D23938     # D_82D23938: how many rule sets the player has, and at +4 the rule sets
+RULE_EDIT_WINDOW = 0x82D07174  # D_82D07174: the page's window
+ENTRY_SETTINGS = 0x8133197C    # D_8133197C: the entry screen's settings; at +0x940 the rule set in force
+CHOSEN_RULES = 0x80000330      # gChosenRules: 1 while Free Battle's rule set is the mod's
+ANYTHING_GOES = 0x8009F5C4     # the game's own records of two rule sets
+POKE_CUP = 0x8009F64C
+RULES_SIZE = 0x44
+CLAUSES = 0x7                  # CLAUSE_MASK: the mod's bits of a rule set's flags
 
 RECORD_SIZE = 0x58
 CELL_ICON, ICON_SIZE = 0x60, 0xC88   # a list cell is a record followed by, among other things, its icon
@@ -187,6 +204,23 @@ class Record:
         return self.data[:0x40]
 
 
+class Rules:
+    """A rule set; see `Rules` in mod/include/game.h."""
+
+    def __init__(self, data: bytes):
+        self.data = bytes(data[:RULES_SIZE])
+        d = self.data
+        self.name = d[:0x14].split(b"\0")[0]
+        self.species = d[0x14:0x34]
+        self.kind, = struct.unpack_from(">h", d, 0x34)
+        self.levels = (d[0x36], d[0x37])
+        self.level_total, self.background, self.rentals, self.name_text = struct.unpack_from(">Hhhh", d, 0x38)
+        self.flags, = struct.unpack_from(">I", d, 0x40)
+
+    def admits(self, species: int) -> bool:
+        return bool(self.species[(species - 1) >> 3] & (0x80 >> ((species - 1) & 7)))
+
+
 class EditState:
     """The editor's state; see `EditState` in mod/include/edit.h."""
 
@@ -284,8 +318,17 @@ def presses(button: str, count: int, wait: int = 10) -> list:
     return press(button, wait) * count
 
 
-# Switch-on to the map, with nothing saved on the cartridge.
-BOOT = (["wait 600"] + press("Start", 240, 6) + press("Start", 300, 6) + press("A", 300, 6) + press("A", 400, 6))
+# Switch-on to "Please Select", with nothing saved on the cartridge, and from there to
+# the map.
+SELECT = ["wait 600"] + press("Start", 240, 6) + press("Start", 300, 6) + press("A", 300, 6)
+BOOT = SELECT + press("A", 400, 6)
+# From "Please Select": OPTIONS, and RULE EDIT there, where the player's own rule sets
+# are made. Then "Make rules", the first place on the list, and the page for the rule set.
+RULE_EDIT = press(LEFT, 40, 6) + press(UP, 40, 6) + press("A", 300, 6) + presses(DOWN, 2, 30) + press("A", 300, 6)
+MAKE_RULES = press("A", 150, 6) + press("A", 200, 6)
+# From that page once OK has kept the rule set: out of RULE EDIT, out of OPTIONS, and
+# "Save and quit".
+SAVE_RULES = press("B", 120) + press("B", 300) + press("B", 300) + press("A", 300)
 # Map to Free Battle's set-up screen.
 FREE_BATTLE = press(RIGHT, 40, 6) + press(UP, 40, 6) + press("A", 300, 6)
 # On an entry screen: Rental Only, which opens the picker.
@@ -293,10 +336,26 @@ RENTAL_ONLY = press(RIGHT, 20, 6) + press(RIGHT, 20, 6) + press("A", 300, 6)
 # In the picker: enter the first rental as it is and confirm the team.
 ENTER_FIRST = press("A", 60) + press("A", 90) + press("Start", 60) + press("A", 240)
 
+# Free Battle's set-up screen as it opens to its rule sets, 1P vs COM, with the cursor
+# on the first, Anything Goes.
+TO_RULES = FREE_BATTLE + presses("A", 3, 40) + press("A", 120, 6)
+# From there: "Edit Rules", the last of the six, and its list of the player's own rule
+# sets, where the mod's comes after them. With nothing saved it is the first.
+OWN_RULES = presses(DOWN, 5, 20) + press("A", 60, 6)
+# From the map: a Free Battle under Challenge Cup rules, the fifth of the six, with its
+# first ball and the first stage. The game deals both teams itself, so there is no entry
+# screen: the opponent's introduction comes next.
+CHALLENGE_CUP = TO_RULES + presses(DOWN, 4, 20) + press("A", 120, 6) + press("A", 120, 6) + press("A", 300, 6)
+
 SCENES = {
     # 1P vs COM, Anything Goes, in the rental picker.
     "picker": FREE_BATTLE + presses("A", 3, 40) + press("A", 120, 6) + press("A", 120, 6) + press("A", 300, 6)
               + RENTAL_ONLY,
+    # The same under the mod's own rule set, and the entry screen before it.
+    "ou": TO_RULES + OWN_RULES + press("A", 120, 6) + press("A", 300, 6) + RENTAL_ONLY,
+    "ou entry": TO_RULES + OWN_RULES + press("A", 120, 6) + press("A", 300, 6),
+    # Free Battle's rule sets.
+    "rules": TO_RULES,
     # The same under Poke Cup rules (levels 50 to 55).
     "cup": FREE_BATTLE + presses("A", 3, 40) + press("A", 60, 6) + presses(DOWN, 2, 20) + press("A", 120, 6)
            + press("A", 300, 6) + RENTAL_ONLY,
@@ -401,6 +460,57 @@ class Session:
         """The Pokemon open in the editor."""
         return Record(self.read(self.panel().pokemon, RECORD_SIZE))
 
+    def picker_panel(self) -> Panel:
+        """The picker's detail panel, the first thing in its state, editor or no editor."""
+        base, _ = self.fragment(PICKER_VRAM)
+        return Panel(self.read(base + PICKER_STATE - PICKER_VRAM, Panel.SIZE))
+
+    def rules(self) -> Rules:
+        """The rule set in force on the entry screen, and where it is kept."""
+        base, _ = self.fragment(PICKER_VRAM)
+        settings = self.u32(base + ENTRY_SETTINGS - PICKER_VRAM)
+        at = self.u32(settings + 0x940)
+        rules = Rules(self.read(at, RULES_SIZE))
+        rules.address = at
+        return rules
+
+    def own_rules(self) -> list:
+        """The rule sets on Free Battle's list of the player's own."""
+        base, _ = self.fragment(RULE_SELECT_VRAM)
+        state = base + RULE_SELECT_STATE - RULE_SELECT_VRAM
+        count = self.read(state + 0x2EC, 1)[0]
+        return [Rules(self.read(state + 0xCC + i * RULES_SIZE, RULES_SIZE)) for i in range(count)]
+
+    def rule_page(self) -> tuple:
+        """(what RULE EDIT is showing, its cursor's row, the rule set on its page)."""
+        base, _ = self.fragment(RULE_EDIT_VRAM)
+        if base == 0:
+            raise AssertionError("RULE EDIT is not up")
+        data = self.read(base + RULE_EDIT_PAGE - RULE_EDIT_VRAM, 0xC0 + RULES_SIZE)
+        return data[0], struct.unpack_from(">b", data, 1)[0], Rules(data[0xC0:])
+
+    def edited_rules(self) -> list:
+        """The player's own rule sets as RULE EDIT holds them."""
+        base, _ = self.fragment(RULE_EDIT_VRAM)
+        at = base + RULE_EDIT_OWN - RULE_EDIT_VRAM
+        count = self.read(at, 1)[0]
+        return [Rules(self.read(at + 4 + i * RULES_SIZE, RULES_SIZE)) for i in range(count)]
+
+    def viewer(self) -> tuple:
+        """(heading, [(title, what is behind it)]) of the rule viewer."""
+        base, _ = self.fragment(VIEWER_VRAM)
+        if base == 0:
+            raise AssertionError("the rule viewer is not up")
+        state = base + VIEWER_STATE - VIEWER_VRAM
+
+        def text(at: int, length: int) -> bytes:
+            return self.read(at, length).split(b"\0")[0]
+
+        count = self.read(state + 3, 1)[0]
+        lines = [(text(state + 0x50 + i * VIEWER_LINE + 4, 0x50), text(state + 0x50 + i * VIEWER_LINE + 0x54, 0x168))
+                 for i in range(count)]
+        return text(state + 0x1C, 0x32), lines
+
     def party_cell(self, index: int = 0) -> int:
         """Where a Pokemon entered in the picker is kept: its record, and the rest of its cell."""
         base, _ = self.fragment(PICKER_VRAM)
@@ -414,6 +524,11 @@ class Session:
         """What the team being chosen is doing: PARTY_MENU and the like."""
         base, _ = self.fragment(PICKER_VRAM)
         return self.read(base + PICKER_STATE - PICKER_VRAM + PARTY_STATE, 1)[0]
+
+    def side(self) -> int:
+        """Whose team is being chosen: 0 for the first side."""
+        base, _ = self.fragment(PICKER_VRAM)
+        return struct.unpack(">b", self.read(base + PICKER_STATE - PICKER_VRAM + PICKER_SIDE, 1))[0]
 
     def team_menu(self) -> Menu:
         """The picker's popup menu."""

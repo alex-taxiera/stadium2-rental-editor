@@ -123,6 +123,28 @@ class BuildEntriesTest(unittest.TestCase):
                          ["HI16@0x0", "LO16@0x10", "HI16@0x4", "LO16@0x8"])
         self.assertEqual(fr.order_errors(image_of(p.words), entries), [])
 
+    def test_a_low_half_that_counts_down_keeps_its_own_high_half(self):
+        # As the linker leaves them, relocations against the fragment's own data all name
+        # the start of its section. An address past the first 0x8000 bytes has a negative
+        # lower half, which measured from that start looks nearer to the `lui` of a lower
+        # address than to its own. Here it would go to the one that follows, and from
+        # there to the first, which has none of its own and is given one.
+        p = Program()
+        low_data, high_data = VRAM + 0x7EC0, VRAM + 0xA17C
+        p.emit(lui(A1, hi_lo(low_data + 4)[0]), fr.R_MIPS_HI16, VRAM)
+        p.emit(lui(A1, hi_lo(low_data)[0]), fr.R_MIPS_HI16, VRAM)
+        p.emit(addiu(A1, A1, hi_lo(low_data)[1]), fr.R_MIPS_LO16, VRAM)
+        p.emit(addiu(A1, A1, hi_lo(low_data + 4)[1]), fr.R_MIPS_LO16, VRAM)
+        own = p.emit(lui(A1, hi_lo(high_data)[0]), fr.R_MIPS_HI16, VRAM)
+        down = p.emit(addiu(A1, A1, hi_lo(high_data)[1]), fr.R_MIPS_LO16, VRAM)
+        p.emit(lui(A1, hi_lo(low_data)[0]), fr.R_MIPS_HI16, VRAM)
+        p.emit(addiu(A1, A1, hi_lo(low_data)[1]), fr.R_MIPS_LO16, VRAM)
+        entries, unpaired = p.table()
+        self.assertEqual(unpaired, [])
+        at = entries.index(0x05000000 | own)
+        self.assertEqual(entries[at + 1], 0x06000000 | down)
+        self.assertEqual(fr.order_errors(image_of(p.words), entries), [])
+
     def test_high_half_placed_after_its_low_half(self):
         # The `lui` for the first use sits later in the file; an unrelated one precedes.
         p = Program()

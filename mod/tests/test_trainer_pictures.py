@@ -163,15 +163,20 @@ class TrainerMemoryTest(unittest.TestCase):
         self.assertGreaterEqual(names, NMI_BUFFER)
         self.assertEqual(names + 4 * name_bytes, titles)
         self.assertEqual(titles + 4, choices)
-        # A port's name is found by shifting the port, in the patch and in the mod alike.
+        # A port's name is found by shifting the port, in the patch and in the mod alike,
+        # and the patch copies it as two words.
         self.assertEqual(name_bytes, 1 << 3)
+        self.assertEqual(names % 4, 0)
 
     def test_the_patched_stock_code_reads_the_same_bytes(self):
         patches = STOCK_PATCHES.read_text(encoding="utf-8")
-        loads = re.findall(r"(lbu?)\s+\$\w+, (\w+)\(\$at\)\s*$", patches, re.M)
+        loads = re.findall(r"(lbu?|lw)\s+\$\w+, (\w+)\(\$at\)\s*$", patches, re.M)
         names, titles = address("gTrainerNames") - 0x80000000, address("gTrainerTitles") - 0x80000000
         self.assertEqual(sorted((op, int(offset, 16)) for op, offset in loads),
-                         [("lb", names), ("lbu", titles), ("lbu", titles)])
+                         [("lbu", titles), ("lbu", titles), ("lw", names), ("lw", names + 4)])
+        # The name goes to the side's twelve bytes of the screen's data, word for word.
+        stores = re.findall(r"sw\s+\$t1, (\w+)\(\$s0\)\s*$", patches, re.M)
+        self.assertEqual(sorted(int(offset, 16) for offset in stores), [0x8D0, 0x8D4])
         # A title is kept as its number XOR the player's own, and turned back the same way.
         turned_back = re.findall(r"xori\s+\$a1, \$a1, (\w+)\s*$", patches, re.M)
         self.assertEqual([int(value, 16) for value in turned_back], [constant("PLAYER_TRAINER_TITLE")] * 2)

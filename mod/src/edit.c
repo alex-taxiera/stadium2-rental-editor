@@ -1,3 +1,4 @@
+#include "clauses.h"
 #include "edit.h"
 
 #include "legal_moves.inc.c"
@@ -138,18 +139,14 @@ static s32 Edit_StatExpForTier(s32 tier) {
     return (4 * tier - 1) * (4 * tier - 1) + 1;
 }
 
-static Rules *Edit_Rules(void) {
-    return *(Rules **)(gEntrySettings + ENTRY_SETTINGS_RULES);
-}
-
 static s32 Edit_MinLevel(void) {
-    s32 level = Edit_Rules()->minLevel;
+    s32 level = Rules_InForce()->minLevel;
 
     return level < MIN_LEVEL ? MIN_LEVEL : level;
 }
 
 static s32 Edit_MaxLevel(void) {
-    s32 level = Edit_Rules()->maxLevel;
+    s32 level = Rules_InForce()->maxLevel;
 
     if (level > 100) {
         level = 100;
@@ -160,7 +157,7 @@ static s32 Edit_MaxLevel(void) {
 /* Whether the team is past the rules' limit on its levels together. Only for a panel
  * opened on one of the team: that is the picker's own, the first thing in its state. */
 static s32 Edit_TeamOverLevels(DetailPanel *panel) {
-    return Party_LowestLevelTotal((u8 *)panel + ENTRY_STATE_PARTY) > Edit_Rules()->maxLevelTotal;
+    return Party_LowestLevelTotal((u8 *)panel + ENTRY_STATE_PARTY) > Rules_InForce()->maxLevelTotal;
 }
 
 /* Gives the Pokemon a level and returns the one it got. For one of the team that is the
@@ -317,8 +314,9 @@ static void Edit_GlideScroll(EditState *state) {
     state->scroll += left / 2 != 0 ? left / 2 : left;
 }
 
-/* Fills the list with every move the species may know, in alphabetical order.
- * The first entry removes the move when the Pokemon would still have one left. */
+/* Fills the list with every move the species may know, in alphabetical order, less
+ * those the rules keep it from knowing in this slot beside its other moves. The first
+ * entry removes the move when the Pokemon would still have one left. */
 static void Edit_BuildList(EditState *state, Pokemon *mon) {
     s32 current = mon->moves[state->row];
     s32 count = 0;
@@ -331,7 +329,7 @@ static void Edit_BuildList(EditState *state, Pokemon *mon) {
     for (i = 0; i < NUM_MOVES; i++) {
         s32 move = sMoveOrder[i];
 
-        if (Edit_IsLegal(mon->species, move)) {
+        if (Edit_IsLegal(mon->species, move) && !Clauses_MoveRefused(Rules_InForce(), mon, move, state->row)) {
             if (move == current) {
                 state->cursor = count;
             }

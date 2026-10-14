@@ -120,19 +120,125 @@ char *func_80063270(u8 type); /* type name */
 #define Move_BasePP func_80062E10
 #define Type_Name func_80063270
 
-/* --- Rules --- */
+/* --- Rules ---
+ *
+ * A rule set is one record. The game has fourteen of its own, found by their kind
+ * (func_800718B8), and a player's own rules are records of the kind RULES_CUSTOM, which
+ * travel by value: from the list Free Battle offers them in, to the session, where the
+ * screens that follow read them.
+ */
 
 typedef struct Rules {
-    /* 0x00 */ u8 unk00[0x36];
+    /* 0x00 */ char name[0x14]; /* a player's own rules have one; the game's are named by `nameText` */
+    /* 0x14 */ u8 species[0x20]; /* who may enter: a bit per species, the first species the top bit */
+    /* 0x34 */ s16 kind;
     /* 0x36 */ u8 minLevel;
     /* 0x37 */ u8 maxLevel;
     /* 0x38 */ u16 maxLevelTotal;
-} Rules;
+    /* 0x3A */ s16 background;
+    /* 0x3C */ s16 rentals;  /* which table of rental Pokemon, negative for none */
+    /* 0x3E */ s16 nameText; /* in the entry screen's text bank, negative to show `name` */
+    /* 0x40 */ u32 flags;
+} Rules; /* size = 0x44 */
+
+#define RULES_ANYTHING_GOES 5
+#define RULES_CUSTOM 0xE
+
+#define RULES_HELD_ITEMS 0x04000000 /* in a rule set's flags: items may be held */
 
 /* The entry screen's settings; the rule set in force hangs off it. */
 extern u8 *D_8133197C;
 #define gEntrySettings D_8133197C
 #define ENTRY_SETTINGS_RULES 0x940
+#define ENTRY_SETTINGS_MODE 0x950 /* u16: the session's mode */
+#define MODE_FREE_BATTLE 0x200    /* in a mode's upper byte */
+
+/* What a battle and the screens before it share. A player's own rules are kept in it;
+ * with any other rule set that room is cleared when the rules are chosen, and unused. */
+extern u8 *D_8009DF70;
+#define gSession D_8009DF70
+#define SESSION_RULES 0x3C
+
+/* Which rule set of the mod's Free Battle was last given, if any: the session only
+ * knows it as Anything Goes, which it is in everything but who may enter. One byte of
+ * osAppNMIBuffer, like gTrainerChoices below, so it is 0 from power on. */
+#define gChosenRules ((u8 *)0x80000330)
+#define CHOSEN_OU 1
+
+/* --- Free Battle's rule select (fragment 6) ---
+ *
+ * "Edit Rules", the last of its six rule sets, opens a list of the player's own rules:
+ * up to eight records, read from the save file when the screen starts. */
+#define RULE_SELECT_SETTINGS 0x38     /* in its state: what the screen is to fill in */
+#define RULE_SELECT_SAVED 0xCC        /* the records */
+#define RULE_SELECT_SAVED_COUNT 0x2EC /* u8: how many there are */
+#define RULE_SELECT_SAVED_MAX 8
+#define RULE_SETTINGS_RULES 0x10      /* in what it fills in: the rule set chosen, by value */
+
+/* --- The rule viewer (fragment 83) ---
+ *
+ * "Check Rules" lists what a rule set says, a line each with more to read behind it:
+ * at most ten, which a player's own rules can already come to. */
+typedef struct RuleLine {
+    /* 0x00 */ s32 kind; /* 0 for a line with a description, 1 for the one that opens the list of species */
+    /* 0x04 */ char title[0x50];
+    /* 0x54 */ char description[0x168];
+    /* 0x1BC */ u8 unk1BC[0x10];
+} RuleLine; /* size = 0x1CC */
+
+u8 *RuleViewer_GetState(void);  /* D_82C04C38; see state.s */
+#define RULE_VIEWER_COUNT 3     /* u8, in its state: how many lines */
+#define RULE_VIEWER_RULES 0x18  /* the rule set shown */
+#define RULE_VIEWER_LINES 0x50
+#define RULE_VIEWER_MAX_LINES 10
+
+/* --- The rule editor (fragment 82) ---
+ *
+ * RULE EDIT, under OPTIONS: the player's own rule sets, listed, and a page of rows for
+ * the one being made or changed. One widget draws both, by what its state says it is
+ * showing; the page's rows are a cursor in that state, and the rule set follows it.
+ */
+u8 *RuleEdit_GetPage(void);    /* that state (D_82D23830; see state.s) */
+#define RULE_EDIT_MODE 0       /* u8: what is shown */
+#define RULE_EDIT_CURSOR 1     /* s8: the row */
+#define RULE_EDIT_RULES 0xC0   /* the rule set being edited */
+#define RULE_EDIT_ROWS 4       /* modes: the page, with the cursor on its rows; */
+#define RULE_EDIT_SHOWN 6      /* the page with something on it being set, from here on; */
+#define RULE_EDIT_DIMMED 7     /* and from here on dimmed, a level being set */
+
+/* The widget, as its drawing is given it. */
+#define RULE_WIDGET_MOVING 0xB /* u8: sliding in or out, with nothing in it yet */
+#define RULE_WIDGET_PAGE 0x10  /* its state */
+#define RULE_WIDGET_X 0x14     /* s16 */
+#define RULE_WIDGET_Y 0x16
+
+/* The page's window, among the rectangles the widget's window goes between: x, y,
+ * width and height (D_82D07174; see state.s). The mod's rows need it higher than the
+ * game has it, 326 from 113 down: here as high as the window of Pokemon is, which
+ * opens over it and goes on hiding it. */
+s16 *RuleEdit_PageWindow(void);
+#define RULE_EDIT_WINDOW_Y 93
+#define RULE_EDIT_WINDOW_HEIGHT 356
+
+#define RULE_EDIT_TEXT_BANK 0x43
+#define RULE_EDIT_TEXT_OK 0xC
+#define RULE_EDIT_TEXT_USE 0x11 /* the answers to "Use items?" */
+#define RULE_EDIT_TEXT_DONT_USE 0x12
+
+extern u16 D_82D23D88; /* the buttons pressed this frame */
+#define gRuleEditPressed D_82D23D88
+
+/* Moves a cursor on Up and Down, round from one end to the other and past `skip`. */
+void func_82D001C0(s8 *cursor, s32 first, s32 last, s32 skip);
+#define RuleEdit_MoveCursor func_82D001C0
+
+void func_82D0087C(void); /* A on the page's row: what the row does */
+#define RuleEdit_Choose func_82D0087C
+
+/* The hand that points at a row, here and on other screens of the kind, moving to and
+ * fro on a timer of its own. */
+void Ui_DrawAnimatedTextureMarker(s32 x, s32 y);
+#define RuleEdit_DrawPointer Ui_DrawAnimatedTextureMarker
 
 /* --- Controllers --- */
 
@@ -195,6 +301,7 @@ typedef struct DetailPanel {
 #define PANEL_CLOSING 3 /* after a choice; the result is the cursor's row plus one */
 #define PANEL_MODE_ENTER 0
 #define PANEL_MODE_EXCHANGE 1 /* on a Pokemon already on the team: Yes to pick another in its place */
+#define ENTER_MENU_YES 0
 #define ENTER_MENU_NO 1
 
 /* Number of entries in the ENTER menu: 2, or 3 when items are allowed. */
@@ -328,6 +435,20 @@ s32 func_81311C70(Menu *menu, MenuDef *def, s32 controller, s32 textArg);
 #define PARTY_NAME 0x11
 #define PARTY_CELLS 0x20 /* its Pokemon, a ListCell each; an empty place has species 0 */
 #define PARTY_SIZE 6
+
+/* The picker's state has the popup menu in it, and the list: of a box's Pokemon, or of
+ * the registered teams. A registered team is laid out as the team being chosen is, and
+ * the list's menu for one has an OK that enters it whole. */
+#define ENTRY_STATE_MENU 0x74
+#define ENTRY_STATE_LIST 0xD18
+#define ENTRY_TEXT_SET_OK 0x52
+
+u8 *func_8130B1F4(u8 *list); /* the registered team the list's cursor is on */
+#define RegisteredSets_Chosen func_8130B1F4
+
+/* Whether the rules let a Pokemon in, by its species and level. */
+s32 func_800712DC(Rules *rules, Pokemon *mon);
+#define Rules_Admit func_800712DC
 
 /* What the team menu answers for "Reselect some": the cursor goes to the team's box,
  * where A on a Pokemon opens the detail panel on it, to EXCHANGE. */
@@ -464,10 +585,20 @@ void Gfx_FillRectRgb(s16 x, s16 y, s16 width, s16 height, u8 r, u8 g, u8 b);
 #define Text_SetFont func_800496A4
 #define Text_SetColor func_8004972C
 #define Text_Draw func_800495BC
+
+/* Draws a string from x on, or ending at x. */
+s32 func_80049064(s32 x, s32 y, s32 from, char *str);
+#define Text_DrawFrom func_80049064
+#define TEXT_FROM_LEFT 0
+#define TEXT_FROM_RIGHT 2
 #define Text_End func_800499EC
 #define Text_Width func_80049148
 
 #define MENU_FONT 4
+
+/* The colour the detail panel gives a move's name, by the move's type. */
+void func_81602DA4(s32 type);
+#define Text_SetTypeColor func_81602DA4
 
 /* --- Sound --- */
 
@@ -489,5 +620,11 @@ void orig_func_81306B64(void *list, s32 x, s32 y, s32 arg3, s32 *available);
 void orig_func_813114B8(Menu *menu, s32 row);
 void orig_func_81302EE4(u8 *party, u8 *state, char *name, s32 id, void *arg4, void *arg5);
 void orig_func_81311650(Menu *menu, void *ctx);
+void orig_func_81311894(Menu *menu);
+void orig_func_83101C80(u8 *state, void *ctx, u8 *settings);
+void orig_func_8310065C(u8 *state, s32 cancelled);
+void orig_func_82C04350(void);
+void orig_func_82D0034C(void);
+void orig_func_82D03CC0(u8 *widget);
 
 #endif

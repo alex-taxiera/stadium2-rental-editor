@@ -132,25 +132,113 @@ func_82605908   82605BDC  xori        $a1, $a1, 0x29
 
 # The same screen also names the sides. In Free Battle func_82601BB0 gives a human "1P" to
 # "4P" by port, over whatever name the entry screen handed on (so not even a Game Pak's
-# trainer name shows there). A player whose port has a name in gTrainerNames now keeps
-# the one handed on, which is that name.
+# trainer name shows there). A player whose port has a name in gTrainerNames now gets
+# that name, written here. What was handed on is not to be relied on for it: the
+# Challenge Cup has no entry screen, so nothing is handed on there, and a player with a
+# name was shown none.
 #
-# There is no room for the test where it belongs, so it is done in instructions that the
-# change to func_826101B4 above left unreached, 0x826103F8 on, and branched to and back
+# There is no room for it where it belongs, so it is done in instructions that the
+# change to func_826101B4 above left unreached, 0x826103E8 on, and branched to and back
 # from: branches are relative, so they need no relocation, and both are well within
-# reach. The first three instructions make room by taking the side times three from $t3,
-# where the loop already has it. On the way back $t1 is the name's first byte.
-func_82601BB0   82601C3C  sll         $t1, $t3, 2
-func_82601BB0   82601C40  bltz        $v0, .L82601C7C
-func_82601BB0   82601C44  addiu       $a1, $v0, 0x1
-func_82601BB0   82601C48  b           . + 0xE7B0
-func_82601BB0   82601C4C  addu        $s0, $s3, $t1
+# reach. Room for the way there is made by taking the side times three from $t3, where
+# the loop already has it, and by $a0 being 1 already. On the way back $t1 is the name's
+# first byte.
+func_82601BB0   82601C3C  bltz        $v0, .L82601C7C
+func_82601BB0   82601C40  sll         $t1, $t3, 2
+func_82601BB0   82601C44  addu        $s0, $s3, $t1
+func_82601BB0   82601C48  b           . + 0xE7A0
+func_82601BB0   82601C4C  sll         $t1, $v0, 3
 func_82601BB0   82601C50  bnez        $t1, .L82601CF0
-func_82601BB0   82601C54  addiu       $a0, $zero, 0x1
+func_82601BB0   82601C54  addiu       $a1, $v0, 0x1
 
-# $v0 is the port, not negative.
-func_826101B4   826103F8  sll         $t1, $v0, 3
-func_826101B4   826103FC  lui         $at, 0x8000
-func_826101B4   82610400  addu        $at, $at, $t1
-func_826101B4   82610404  b           . - 0xE7B4
-func_826101B4   82610408  lb          $t1, 0x334($at)
+# $v0 is the port, not negative, and $t1 eight times it; the side's name is at 0x8D0 of
+# $s0. The name is copied whole, as two words, both ends being on a multiple of four; an
+# empty one is then written over with "1P". One of the loader's relocated calls stands
+# in the middle of the room and is stepped over.
+func_826101B4   826103E8  lui         $at, 0x8000
+func_826101B4   826103EC  b           . + 0xC
+func_826101B4   826103F0  addu        $at, $at, $t1
+func_826101B4   826103F8  lw          $t1, 0x338($at)
+func_826101B4   826103FC  sw          $t1, 0x8D4($s0)
+func_826101B4   82610400  lw          $t1, 0x334($at)
+func_826101B4   82610404  sw          $t1, 0x8D0($s0)
+func_826101B4   82610408  b           . - 0xE7B8
+func_826101B4   8261040C  srl         $t1, $t1, 24
+
+# The rule editor's page for one rule set (fragment 82), in what stays where it is of the
+# function that draws it. The mod adds three rows for the move clauses before OK, which
+# makes them rows 6 to 8 and OK row 9, and draws those four itself with the hand that
+# points at them (mod/src/rule_edit.c). The game knows row 6 as OK and any row after as
+# OK too, so its own OK is given up:
+#
+# its text is drawn as the empty one of the bank, in place of text 0xC;
+func_82D03CC0   82D041E0  addiu       $a1, $zero, 0x10
+# and its hand, 0x10A down the page for any row from 6 on, is put off the screen.
+func_82D03CC0   82D04800  addiu       $a1, $a1, 0x200
+
+# A rule set of the player's own is saved as 0x48 bytes, of which one after the six
+# flags the game keeps is left empty. The move clauses, the low bits of the flags, go
+# there. Both ways the game's instructions took a flag at a time through memory; done in
+# registers there is room to spare, which is left as nothing.
+#
+# func_800519AC, to the saved form. $s0 is the rule set and $a3 the saved one; $t9 has
+# the flags from the first flag's instructions, which are as they were.
+func_800519AC   80051A04  sll         $t2, $t9, 1
+func_800519AC   80051A08  srl         $t3, $t2, 31
+func_800519AC   80051A0C  sb          $t3, 0x5($a3)
+func_800519AC   80051A10  sll         $t5, $t9, 2
+func_800519AC   80051A14  srl         $t6, $t5, 31
+func_800519AC   80051A18  sb          $t6, 0x6($a3)
+func_800519AC   80051A1C  sll         $t8, $t9, 3
+func_800519AC   80051A20  srl         $t0, $t8, 31
+func_800519AC   80051A24  sb          $t0, 0x7($a3)
+func_800519AC   80051A28  sll         $t1, $t9, 4
+func_800519AC   80051A2C  srl         $t2, $t1, 31
+func_800519AC   80051A30  sb          $t2, 0x8($a3)
+func_800519AC   80051A34  sll         $t4, $t9, 5
+func_800519AC   80051A38  srl         $t5, $t4, 31
+func_800519AC   80051A3C  sb          $t5, 0x9($a3)
+func_800519AC   80051A40  sb          $t9, 0xA($a3)
+func_800519AC   80051A44  nop
+func_800519AC   80051A48  nop
+func_800519AC   80051A4C  nop
+func_800519AC   80051A50  nop
+
+# func_80051890, from the saved form. $s0 is the saved rule set and $a3 the one being
+# made of it, which has just been cleared. Two instructions among these are the game's
+# and stay: they set up a copy that follows.
+func_80051890   800518E4  lbu         $t1, 0x4($s0)
+func_80051890   800518E8  sll         $t1, $t1, 7
+func_80051890   800518F0  lbu         $t2, 0x5($s0)
+func_80051890   800518F4  andi        $t2, $t2, 0x1
+func_80051890   800518F8  sll         $t2, $t2, 6
+func_80051890   800518FC  or          $t1, $t1, $t2
+func_80051890   80051900  lbu         $t2, 0x6($s0)
+func_80051890   80051908  andi        $t2, $t2, 0x1
+func_80051890   8005190C  sll         $t2, $t2, 5
+func_80051890   80051910  or          $t1, $t1, $t2
+func_80051890   80051914  lbu         $t2, 0x7($s0)
+func_80051890   80051918  andi        $t2, $t2, 0x1
+func_80051890   8005191C  sll         $t2, $t2, 4
+func_80051890   80051920  or          $t1, $t1, $t2
+func_80051890   80051924  lbu         $t2, 0x8($s0)
+func_80051890   80051928  andi        $t2, $t2, 0x1
+func_80051890   8005192C  sll         $t2, $t2, 3
+func_80051890   80051930  or          $t1, $t1, $t2
+func_80051890   80051934  lbu         $t2, 0x9($s0)
+func_80051890   80051938  andi        $t2, $t2, 0x1
+func_80051890   8005193C  sll         $t2, $t2, 2
+func_80051890   80051940  or          $t1, $t1, $t2
+func_80051890   80051944  sb          $t1, 0x40($a3)
+func_80051890   80051948  lbu         $t2, 0xA($s0)
+func_80051890   8005194C  andi        $t2, $t2, 0x7
+func_80051890   80051950  sb          $t2, 0x43($a3)
+func_80051890   80051954  nop
+func_80051890   80051958  nop
+func_80051890   8005195C  nop
+func_80051890   80051960  nop
+func_80051890   80051964  nop
+func_80051890   80051968  nop
+func_80051890   8005196C  nop
+func_80051890   80051970  nop
+func_80051890   80051974  nop

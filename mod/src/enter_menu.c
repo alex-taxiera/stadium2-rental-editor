@@ -1,3 +1,4 @@
+#include "clauses.h"
 #include "edit.h"
 
 static char sEditLabel[] = "EDIT";
@@ -11,8 +12,51 @@ static char sEditLabel[] = "EDIT";
  * does not load itself is loaded here.
  */
 void Mod_EntrySetup(void) {
+    Rules_UseChosen();
     Image_LoadBank(ARROW_IMAGES);
     orig_func_8130251C();
+}
+
+/* Whether the Pokemon in the panel cannot be entered for a move it knows. (One of the
+ * team may be exchanged whatever it knows.) */
+static s32 EnterMenu_ClauseBroken(DetailPanel *panel) {
+    return panel->mode == PANEL_MODE_ENTER && Clauses_Broken(Rules_InForce(), panel->pokemon);
+}
+
+/**
+ * Stands in for func_8130CE3C where the ENTER menu's drawing and input ask whether
+ * "Yes" is greyed out (mod/asm_patches.txt). The game greys it for a held item the
+ * rules reject, and keeps the cursor off it; a move they reject gets the same.
+ */
+s32 Mod_EnterYesDisabled(DetailPanel *panel) {
+    return EnterMenu_YesDisabled(panel) || EnterMenu_ClauseBroken(panel);
+}
+
+/* The game puts the cursor on the menu's last row when it opens one with "Yes" greyed
+ * out: ITEM, where the item can be changed. That is decided in code the mod does not
+ * run, so for a move the cursor is moved here, to where the move can be changed: EDIT,
+ * or No for a Pokemon that cannot be edited. */
+static void EnterMenu_KeepOffYes(DetailPanel *panel) {
+    if (panel->cursor == ENTER_MENU_YES && EnterMenu_ClauseBroken(panel)) {
+        panel->cursor = Edit_CanEdit(panel) ? EnterMenu_StockCount(panel) : ENTER_MENU_NO;
+    }
+}
+
+/**
+ * Called from func_8130DEB8, which draws the detail panel, in place of the call that
+ * gives a move's name the colour of its type (through Mod_PanelMoveColorShim in
+ * state.s). A move the rules reject is grey, as the name of a held item they reject
+ * is. `at` is the Pokemon's record plus the slot, and `offset` four times the slot.
+ */
+void Mod_PanelMoveColor(s32 type, u8 *at, s32 offset) {
+    s32 slot = offset / 4;
+    Pokemon *mon = (Pokemon *)(at - slot);
+
+    if (Clauses_MoveRefused(Rules_InForce(), mon, mon->moves[slot], slot)) {
+        Text_SetColor(0x80, 0x80, 0x80, 0xFF);
+    } else {
+        Text_SetTypeColor(type);
+    }
 }
 
 /**
@@ -23,6 +67,7 @@ void Mod_EntrySetup(void) {
 void Mod_DrawEnterMenu(DetailPanel *panel, void *ctx) {
     s32 row;
 
+    EnterMenu_KeepOffYes(panel);
     orig_func_8130DA04(panel, ctx);
 
     if (Edit_IsActive(panel)) {
@@ -92,7 +137,14 @@ void Mod_EnterMenuInput(DetailPanel *panel) {
         /* The stock menu, with EDIT on it. If Edit POKeMON was waiting, a panel of this
          * other kind means the team's box has been left, so it waits no more. */
         state->pending = FALSE;
+        EnterMenu_KeepOffYes(panel);
         editRow = Edit_CanEdit(panel) ? EnterMenu_StockCount(panel) : -1;
+        if (EnterMenu_ClauseBroken(panel) && (pad->pressed & BTN_A) && panel->cursor != ENTER_MENU_NO &&
+            panel->cursor != editRow) {
+            /* ITEM: choosing an item enters the Pokemon at once. */
+            Sound_Play(SOUND_ERROR);
+            return;
+        }
         if (editRow >= 0 && panel->cursor == editRow && (pad->pressed & BTN_A)) {
             Sound_Play(SOUND_CONFIRM);
             Edit_Open(panel, FALSE);

@@ -66,6 +66,30 @@ class WithoutExpansionPakTest(h.EmulatorTest):
         self.do(*TO_VERSUS, *TO_ORDER_SCREEN)
         self.assertEqual(self.s.battle_pictures()[0], (choice - 1, 0))
 
+    def test_the_rule_set_and_the_rule_editor_have_room_too(self):
+        # Free Battle's rule select loads the mod for itself as it starts and as it ends,
+        # and the viewer for itself: three copies, none of them kept.
+        self.do(*self.s.scene("rules"), *h.OWN_RULES)
+        self.assertEqual(self.s.u32(h.RAM_SIZE), 0x400000)
+        self.assertEqual([rules.name for rules in self.s.own_rules()], [b"OU Rules"])
+        self.do(*press("R", 150))
+        heading, lines = self.s.viewer()
+        self.assertEqual((heading, len(lines)), (b"Check rule OU Rules", 9))
+        self.do(*press("B", 150), *press("A", 120, 6), *press("A", 300, 6), *h.RENTAL_ONLY)
+        # The picker under it is the picker under Anything Goes, to the byte.
+        self.assertEqual(self.s.rules().name, b"OU Rules")
+        self.assertEqual(self.s.u32(h.POOL_FREE),
+                         STOCK_PICKER_FREE - (self.s.mod_size + BLOCK_HEADER) - (ARROWS + BLOCK_HEADER))
+
+        # RULE EDIT keeps the mod loaded while it is up.
+        self.s.emulator.reboot()
+        self.do("turbo on", *h.SELECT, *h.RULE_EDIT, *h.MAKE_RULES)
+        self.assertEqual(self.s.u32(h.RAM_SIZE), 0x400000)
+        self.assertEqual(self.s.fragment(h.MOD_VRAM)[1], self.s.mod_size)
+        self.assertEqual(self.s.rule_page()[:2], (4, 0))
+        self.do(*presses(DOWN, 6, 20), *press("A", 20), *presses(DOWN, 3, 20), *press("A", 200))
+        self.assertEqual([rules.flags & h.CLAUSES for rules in self.s.edited_rules()], [1])
+
 
 if __name__ == "__main__":
     unittest.main()

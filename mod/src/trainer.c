@@ -1,3 +1,4 @@
+#include "clauses.h"
 #include "edit.h"
 #include "trainer.h"
 
@@ -40,7 +41,6 @@ enum { FACE_COUNT, FACE_SECOND, FACE_DEFAULT };
 #define FIELD_HEIGHT 30
 
 /* The picker's state is found from the menu inside it. */
-#define ENTRY_STATE_MENU 0x74
 #define ENTRY_STATE_SIDE 0x1A142 /* s8: whose team is being chosen */
 #define ENTRY_SETTINGS_PORTS 0x900 /* s8 per side: its controller port, negative for the COM */
 
@@ -396,6 +396,20 @@ void Mod_PartyInit(u8 *party, u8 *state, char *name, s32 id, void *arg4, void *a
 }
 
 /**
+ * Replaces func_81311894, a popup menu's input while it is open. A on an entry the move
+ * clauses refuse, which is a registered team's OK, sounds the error and chooses nothing.
+ */
+void Mod_MenuInput(Menu *menu) {
+    s32 controller = (s8)menu->controller;
+
+    if (controller >= 0 && (gPads[controller].pressed & BTN_A) && Clauses_RefusesRow(menu, menu->cursor)) {
+        Sound_Play(SOUND_ERROR);
+        return;
+    }
+    orig_func_81311894(menu);
+}
+
+/**
  * Replaces func_813114B8, which draws one entry of a popup menu from its text bank.
  * The mod's entries are in no text bank, so they are drawn here the way the stock
  * function draws the rest. So is the question over the team's box after "Edit POKeMON",
@@ -418,6 +432,15 @@ void Mod_DrawMenuRow(Menu *menu, s32 row) {
         Text_SetFont(def->font, def->fontArg + 2);
         Text_Draw(menu->x + def->marginLeft + room / 2, menu->y + def->marginTop + def->rowSpacing * row,
                   sEditWhich);
+        return;
+    }
+    if (Clauses_RefusesRow(menu, row)) {
+        /* A registered team's OK, for a team the rules refuse: greyed out, as the ENTER
+         * menu's "Yes" is. */
+        label = Text_Lookup(def->textBank, def->entries[row].text);
+        Text_SetColor(0x80, 0x80, 0x80, 0xFF);
+        Text_SetFont(def->font, def->fontArg + 2);
+        Text_Draw(menu->x + def->marginLeft, menu->y + def->marginTop + def->rowSpacing * row, label);
         return;
     }
     if (def != &state->menu || row < state->source->count) {
