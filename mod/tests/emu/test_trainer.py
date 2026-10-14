@@ -254,6 +254,21 @@ class TrainerTest(h.EmulatorTest):
         self.do(*TO_INTRO)
         self.assertEqual(self.s.battle_names(), [b"RED", b"CAL"])
 
+    def test_a_remembered_name_is_used_where_no_team_is_chosen(self):
+        # The Challenge Cup deals the teams itself, so no entry screen hands a name on.
+        # Without one kept the player is 1P, as in the game.
+        self.do("player 1", "load map", "wait 20", *h.CHALLENGE_CUP)
+        self.assertEqual(self.s.fragment(h.PICKER_VRAM), (0, 0), "there was an entry screen")
+        self.assertEqual(self.s.battle_names(), [b"1P", b"CAL"])
+
+        # With one kept on an earlier visit to an entry screen, the player has it here too.
+        self.do("player 1", "load map", "wait 20", f"write {h.TRAINER_NAMES:08X} 52454400", *h.CHALLENGE_CUP)
+        self.assertEqual(self.s.battle_names(), [b"RED", b"CAL"])
+        self.do("wait 160", *TO_VERSUS)
+        screens.check(self, "versus_challenge", self.s.shot("versus_challenge"), screens.VERSUS_LABEL)
+        self.do(*TO_ORDER_SCREEN)
+        self.assertEqual(self.s.battle_names(), [b"RED", b"CAL"])
+
     def test_without_a_choice_the_game_decides_as_before(self):
         self.start(*h.ENTER_FIRST, *h.RENTAL_ONLY, *h.ENTER_FIRST, "wait 160")
         mode, pictures = self.s.intro()

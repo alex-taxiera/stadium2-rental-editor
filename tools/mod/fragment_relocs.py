@@ -195,8 +195,14 @@ def build_entries(relocations, vram: int, image: bytes, start: int = 0, end: int
 
     def distance(high, low):
         imm = word(low) & 0xFFFF
-        formed = ((word(high) & 0xFFFF) << 16) + (imm - 0x10000 if imm & 0x8000 else imm)
-        return abs((formed & 0xFFFFFFFF) - low.target)
+        formed = (((word(high) & 0xFFFF) << 16) + (imm - 0x10000 if imm & 0x8000 else imm)) & 0xFFFFFFFF
+        # A relocation against the fragment's own data names the start of its section,
+        # and the address is in the instructions: at that start or after it. So a `lui`
+        # that would put it before the fragment is not this one's, however near that is:
+        # the lower half of an address past the first 0x8000 bytes counts down.
+        if vram <= low.target < vram + FRAGMENT_SPAN and formed < vram:
+            return 1 << 32
+        return abs(formed - low.target)
 
     by_register = {}  # register -> HI16 relocations, ascending
     groups = {}       # (register, upper half) -> HI16 relocations, ascending

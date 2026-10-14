@@ -45,7 +45,7 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
     back with the same moves, PP, DVs `0xAAAA`, Stat Exp and level, the rental flag still
     set, and the stats recalculated to the same values.
 - **M6 in part.** `wsl_build.sh mod` also writes the release patch,
-  `build/stadium2-rental-editor-us.bps` (about 30 KB), made from the original ROM by
+  `build/stadium2-rental-editor-us.bps` (about 84 KB), made from the original ROM by
   `tools/mod/bps.py`; applying it gives back the modified ROM exactly.
   [README.md](README.md) is the user's guide and holds the checklist for real hardware.
   - Checked: player 2 gets EDIT in a 1P vs 2P Free Battle and drives the editor with
@@ -140,6 +140,30 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
     allowed.
   - Not tried: a team with a Game Pak's Pokémon on it, where Edit POKéMON should sound
     the error and stay in the box.
+- **Move clauses, and a rule set of the mod's own.** A rule set can keep moves out,
+  by three clauses: Double Team and Minimize; Fissure, Guillotine and Horn Drill;
+  Baton Pass together with Mean Look or Spider Web. Free Battle has **OU Rules**,
+  which is Anything Goes without Mewtwo, Mew, Lugia, Ho-Oh and Celebi and with all
+  three: on the list its sixth rule set, "Edit Rules", opens, after the player's
+  own. RULE EDIT, under OPTIONS, has a row for each clause on a rule set's page, and
+  "Check Rules" a line for them. Under such rules the editor does not offer a move
+  they keep out, a Pokémon that knows one has "Yes" greyed out on its ENTER menu and
+  the move greyed out on its panel, and a registered team with one on it has its OK
+  greyed out. See "Rule sets".
+  - Checked: the rule set on the list, its record, its nine lines in the viewer and
+    what is behind the last; the entry screen under it, with the session still on
+    Anything Goes; Diglett refused for Fissure, the cursor kept off "Yes" and ITEM
+    doing nothing, the list of moves without Fissure and Double Team, and Diglett
+    entered once Fissure is gone; Ariados offered no Baton Pass beside Spider Web
+    and no Spider Web beside Baton Pass, and refused with both; a team of one into a
+    battle; a team registered under Anything Goes with Fissure on it refused under
+    OU Rules and chosen under Anything Goes; Anything Goes refusing nothing, with
+    its viewer as it was; a rule set made in RULE EDIT with two clauses, saved, and
+    after a power cycle on Free Battle's list with them, the viewer naming the two;
+    the 4 MB build through all of it.
+  - Not tried: a Game Pak's Pokémon, which is all a rule set of the player's own
+    takes, and the only way to a registered team with one of the five on it (no
+    rental is one); a second player; anything but Free Battle.
 - An earlier build has been run on a real Nintendo 64 (reported 2026-10-12; which build,
   the cart and whether an Expansion Pak was fitted are not recorded here). So has the
   build released as v0.4.0, which has the editor on one of the team and is the first
@@ -183,6 +207,29 @@ the game's compiler (IDO 7.1), links them at `0x85000000` against the game's sym
     restore, `jr` to a slot of the returned base. Thunks contain no relocations.
 - The boot hook is `func_8130251C`, fragment 14's setup. It runs once per screen, before
   the screen takes the rest of the main pool, and the pool frees the mod on exit.
+- **Other screens.** The mod is only in memory where something loads it, and it has to
+  be loaded after the stock fragment it hooks: the loader rebases the addresses of
+  whatever fragments are in memory at the time and leaves the rest as linked, so a
+  moved function's own references would be wrong in a copy loaded before its fragment
+  was. Two ways, by what the screen needs:
+  - a `boot` hook of its own, for a screen with `jump` or `detour` hooks, which need
+    the mod found through the fragment map for as long as the screen is up: fragment 82,
+    the rule editor, has one (`func_82D0034C`, which reads the saved rule sets as it
+    starts);
+  - a `call` thunk, 32 instructions, for a screen that needs the mod now and then:
+    it keeps the fragment map's entry for the mod, loads a copy, calls its slot as a
+    subroutine and puts the entry back. Fragments 6 and 83 are hooked this way. The
+    copy stays in the screen's pool, found by nothing, until the pool is popped. The
+    block's free callback (`func_800046C0`) clears a fragment's map entry only if the
+    entry still points at that block, so a copy the entry was put back from frees
+    without touching it: a `call` is safe inside a screen that has the mod booted
+    (the viewer under the rule editor, if it comes up there). Each call is one more
+    copy, 57 KB, so it is not for anything that runs every frame. Like a detour, a
+    call leaves the rest of the stock function in place, so it can have a jump table
+    (`func_8310065C` has); the thunk must not split an address the loader relocates
+    in two halves, and must end before the first place the table leads to.
+- **A copy that nothing finds still holds its data.** `Mod_RuleViewerLines` leaves the
+  viewer a pointer into the copy it ran in, which is good until the viewer's pool goes.
 - Only asm functions can be hooked so far (the tool takes their size and body from
   `asm/us/nonmatchings`). Hooking a decompiled function needs its body from elsewhere.
 - `mod/asm_patches.txt` changes single instructions in a moved function, by address.
@@ -202,12 +249,20 @@ the game's compiler (IDO 7.1), links them at `0x85000000` against the game's sym
   `lui`/`addiu` pair of an address) where they are. Branches within the function and
   fixed addresses such as `0x80000358` are fine.
   - A patch has only the room of the instructions it replaces. Where that is not
-    enough, instructions an earlier patch left unreached can hold the rest (`0x826103F8`
-    on, in `func_826101B4`, serves `func_82601BB0`): a branch there and back is
+    enough, instructions an earlier patch left unreached can hold the rest (`0x826103E8`
+    on, in `func_826101B4`, serves `func_82601BB0`, and is now full): a branch there and back is
     relative, so it needs no relocation even between functions, as long as both are in
     the same fragment and within a branch's reach. The assembler takes `. + offset`.
   - A line that leaves an instruction as it was is an error in the tests
     (`test_every_stock_patch_changed_its_instruction`); leave such a line out.
+  - The main segment can be patched as a fragment can (it has no relocation table to
+    mind), and so can what a `detour` or a `call` leaves of its function past the
+    thunk.
+  - A function the decompilation has in C has no assembly file to put the lines into.
+    Its lines are assembled each alone, so they cannot use the function's labels: a
+    branch is `. + offset`. The rule sets' packers are patched this way. (One of the
+    two still has a file in a tree extracted before it was decompiled; the lines are
+    written to work either way.)
   - **Never work out an address from a value that may be negative.** A port of -1 added
     to `0x80000000` (as `lui $at, 0x8000` holds it, sign-extended to 64 bits) gives
     `0xFFFFFFFF7FFFFFFF`, which is not a sign-extended 32-bit address, and a load from it
@@ -217,7 +272,16 @@ the game's compiler (IDO 7.1), links them at `0x85000000` against the game's sym
 - `modtool.py inject` refuses to build a fragment the loader could get wrong: every
   LO16 must have a HI16, the table must pass the order check, and no `lui` may serve two
   addresses inside the mod. Hence `Edit_GetState` in `mod/src/state.s`: C code reaches
-  the editor's state only through that pointer.
+  the editor's state only through that pointer. A stock fragment's data that C code
+  reaches at several offsets is taken there too (`RuleViewer_GetState` and the like):
+  the compiler may share a `lui` between the offsets as it would for the mod's own.
+- **The mod is past 0x8000 bytes**, since the rule sets came (0xBB20 of code and data,
+  0xDDB0 in memory). An address in its upper part has a lower half that counts down
+  from the next 0x10000, and its relocations, as the linker leaves them, all name the
+  start of the section. `fragment_relocs.py` chose a LO16's HI16 by which formed the
+  address nearest that start, which for such an address is the wrong one, the `lui` of
+  some lower address; the table then failed the order check. It now takes no `lui`
+  that would put one of the mod's own addresses before the mod.
 
 In the Free Battle path the mod loads at `0x80253290`; fragment 14 is at `0x80154DA0`.
 
@@ -695,10 +759,45 @@ each pair of 32-bit words is swapped.
 
 ### Rules
 
-`*(Rules **)(D_8133197C + 0x940)` is the rule set in force (in the main segment; Anything
-Goes is at `0x8009F5C4`). `+0x14`: 32-byte bitmask of allowed species. `+0x36`/`+0x37`:
-minimum and maximum level (0 and 100 for Anything Goes). `+0x38` (u16): cap on combined
-levels (600). `+0x40`: flag word; bit 26 allows held items.
+`*(Rules **)(D_8133197C + 0x940)` is the rule set in force: one of the game's records in
+the main segment (Anything Goes is at `0x8009F5C4`), or the session's own copy of one.
+See "Rule sets" for the record and for where the pointer comes from.
+
+- **Who may be entered** is asked in three places. `func_8130456C(party, cell)` for a
+  cell of the list: its species and level by the rules (`func_8007126C`), and whether
+  the team has it already (the same Pokémon, or the same species unless the rules
+  allow that). The list sounds the error on A where that says no. The ENTER menu
+  greys out "Yes" for a held item the rules reject (`func_8130CE3C`), puts the cursor
+  on its last row as it opens (`func_8130EB04`) and keeps Up from reaching "Yes"
+  (`func_8130EC9C`); the panel shows the item's name in grey (`func_8130DEB8`). And
+  the team as a whole has its levels' total (see "The team's box").
+- **The mod's move clauses** go with the second: "Yes" greyed out, the cursor on EDIT
+  for a rental (where the move can be changed) or on No, ITEM refused because choosing
+  an item enters the Pokémon at once, and the move's name grey on the panel, where the
+  game colours it by its type (`func_81602DA4`, in a loop that has the record plus the
+  slot in `$s1` and four times the slot in `$s3`). `func_8130CE3C` is C, so its
+  callers in moved functions are pointed at `Mod_EnterYesDisabled`; the one in
+  `func_8130EB04`, which is not moved, is made up for by moving the cursor.
+- **A registered team is entered whole**, from the menu its list gives the one chosen
+  (OK / Select again / Check: `func_8130C14C`, with the definitions at `D_81312054`;
+  OK is text `0x52` and answers 3). Nothing holds it against the rules: the game keeps
+  the teams of each kind of rules apart (`settings + 0x944`, from `func_8006B854`: 0
+  for Anything Goes, 1 to 3 by the mode otherwise, -1 for a player's own rules, which
+  have none). The mod's rule set shares Anything Goes's, so under rules with clauses
+  the mod greys that OK out and refuses A on it (`Mod_MenuInput`, in place of the
+  popup's input `func_81311894`) for a team with a Pokémon on it that the rules keep
+  out or that breaks a clause. The team the cursor is on is `func_8130B1F4(list)`,
+  the list being the object at `state + 0xD18`, laid out as the team being chosen is.
+  "Check" shows its Pokémon on the panel, the move in grey.
+- **The list of registered teams heads itself** "Registered POKéMON / " and the rule
+  set's name, looked up by the record's text (`+0x3E`) with no thought for a record
+  that has none (`func_8130C570`, at `0x8130CA40`); the screen's other headings show
+  the record's own name then (`func_8130015C`). The mod's `Mod_RuleName` does the same
+  there.
+- A rule set of the player's own gets no rentals and no registered teams:
+  `func_81300E34` and `func_813010B0` give the entry screen's choices "rentals" only
+  if the kind is not 0xE. Under one, with no Game Pak, the screen says "There is no
+  POKéMON Game Pak to choose."
 
 ### Input
 
@@ -706,6 +805,203 @@ levels (600). `+0x40`: flag word; bit 26 allows held items.
 `+0x08` held buttons, `+0x0C` newly pressed. A on cursor 2 opens the item list; A on
 anything else, or B, closes the menu with result `cursor + 1`. Up/down move the cursor
 within `func_8130CEAC`'s count. C buttons open the "check TM" popup for a move.
+
+## Rule sets
+
+### The record
+
+0x44 bytes. **[C]** from the fourteen in the ROM and the code that reads them.
+
+| Offset | Field |
+|---|---|
+| `+0x00` | name, 0x14 bytes; empty in the game's own |
+| `+0x14` | who may enter: a bit per species, species 1 the top bit of the first byte |
+| `+0x34` | kind (s16) |
+| `+0x36`, `+0x37` | lowest and highest level |
+| `+0x38` | the most three levels may come to (u16); 600 for no limit |
+| `+0x3A` | background of the entry screen |
+| `+0x3C` | which table of rentals (s16); -1 for none |
+| `+0x3E` | the rule set's name as a text of the entry screen's bank 0xF (s16); -1 to show `+0x00` |
+| `+0x40` | flags |
+
+Flags: bit 31, Start may end a team short of six; 30, a species may be on a team
+twice (`func_80071210`); 29, so may an item (`func_80071230`); 28, set only for kind
+6; 27, Dragon Rage and Sonicboom work (clear only in the Little Cup: the viewer's "The
+move has no effect"); 26, items may be held. Bits 25 to 16 are set in all fourteen and
+read by nothing found. **Bits 15 to 0 are clear in all fourteen**, and a player's rule
+set is made from nothing but bits 31 to 26. The mod's clauses are bits 0 to 2.
+
+The sleep and freeze clause and the rule on the last Pokémon are not flags: the viewer
+lists them for every rule set, and every battle has them.
+
+`func_800718B8(kind)` finds the game's records, `D_8009F828[kind]`, for kinds 0 to 13:
+
+| Kind | At | | Levels | Rentals | Flags |
+|---|---|---|---|---|---|
+| 0 | `0x8009F470` | Little Cup (86 species) | 5 | 0 | `0x07FF0000` |
+| 1–4 | `0x8009F4B4` on | Challenge Cup, by ball (57 to 59 species) | 0–100 | 0 | `0x0FFF0000` |
+| 5 | `0x8009F5C4` | Anything Goes | 0–100 | 1 | `0xEFFF0000` |
+| 6 | `0x8009F608` | Gym Leader Castle | 0–100 | 4 | `0x1FFF0000` |
+| 7–10 | `0x8009F64C` on | Poké Cup, by ball: no Mewtwo, Mew, Lugia, Ho-Oh, Celebi; total 155 | 50–55 | 3 | `0x0FFF0000` |
+| 11 | `0x8009F75C` | VS Rival | 0–100 | 1 | `0x8FFF0000` |
+| 12, 13 | `0x8009F7A0`, `0x8009F7E4` | Prime Cup | 0–100 | 1, 2 | `0x0FFF0000` |
+
+Kind 14 (0xE) is a rule set of the player's own, which has no record here.
+
+### Kinds and the session
+
+A rule set is chosen as a record, by value, but the session keeps only its kind unless
+the kind is 0xE (`func_80068B78`, with what Free Battle's set-up filled in):
+
+- any other kind: `func_8006A444(kind)` puts the kind at `session + 6` and clears
+  `session + 0x3C`, 0x44 bytes. Whoever wants the rules looks the game's record up
+  again by kind;
+- kind 0xE: `func_8006A4AC(record)` copies the record to `session + 0x3C`.
+
+So `func_8006B928` gives the entry screen `settings + 0x940` as one or the other, and
+`func_8006C664` the battle its `+0x9D4` likewise.
+
+**The kind decides much besides.** `func_80068AB0(kind)` makes the session's mode of
+it: `0x0220` for Anything Goes, `0x0210` for a player's own rules, `0x0200` to `0x0203`
+for the cups. Battle music goes by kind (`func_8006A51C`), the battle asks whether the
+kind is 5 before it has two players on a side as a tag team, the entry screen's
+background and its rentals are by kind (above), and the viewer's lines are mostly by
+kind. A player's own rules are, in all of that, a cup: six entered, three of them
+chosen to fight, no rentals, no registered teams.
+
+### OU Rules
+
+So the mod's rule set is not of the player's kind, though it is on their list. It is a
+record of kind 5 (`mod/data/rule_ou.inc.c`): Anything Goes's record with the Poké
+Cup's species, the clauses' bits, a name, and -1 for its text. To the session it is
+Anything Goes, and the session forgets the rest. What decides who may enter is all on
+the entry screen, so that is where the record is put back:
+
+- `gChosenRules` (`0x80000330`, a byte of `osAppNMIBuffer`) is 1 while Free Battle's
+  last rule select ended on the mod's rule set: `Mod_RuleSelectDone`, in place of
+  `func_8310065C`, sets it by the record the screen filled in (kind 5, with clauses),
+  and `Mod_RuleSelectSetup` clears it as the next one starts.
+- `Rules_UseChosen`, as the entry screen starts (`Mod_EntrySetup`): if the byte is set,
+  the mode is a Free Battle's and the rules given are Anything Goes's, the record is
+  copied to `session + 0x3C`, which Anything Goes leaves empty, and `settings + 0x940`
+  pointed there. Not at the mod's own copy: the settings outlast the entry screen.
+- A battle is one of Anything Goes: its rules pointer is the game's record, which
+  differs from the mod's in nothing a battle reads.
+
+It allows a species and an item twice, as Anything Goes does.
+
+### Free Battle's rule select (fragment 6, vram 0x83100000)
+
+One screen for the players, the rule set and the stage. Its state is `D_831039B0`,
+0x2F4 bytes; `+0x38` is what it fills in, `func_80068CBC`'s 0x5C bytes.
+
+- **Six rule sets**, in a panel they fill: Anything Goes, Prime Cup, Poké Cup, Little
+  Cup, Challenge Cup (which asks for a ball) and "Edit Rules". `+0x3E` is the row, 1 to
+  6, and `D_831038FF` has the kinds of the first five rows for "Check Rules". A seventh
+  row has nowhere to go.
+- **"Edit Rules" opens the player's own**: up to eight records at `+0xCC`, their count
+  at `+0x2EC`, read from the save file by `func_83100584` as the screen is set up
+  (`func_83101C80`). `func_83101804` draws their names in a list of eight places, and
+  A on a place past the count sounds the error. `+0x3F` is the place, from 1.
+- **The mod's rule set is one more record there**, put after the player's by
+  `Mod_RuleSelectSetup` if they have fewer than eight.
+- **Ending** (`func_8310065C(state, cancelled)`, from a stage chosen or from B at the
+  first step): the record goes to `+0x10` of what is filled in, by the row: looked up
+  by kind for the first five, copied from the list for the sixth. So a record on the
+  list goes on as it is, whatever its kind.
+- R, "Check Rules", copies the record the cursor is on to `+0x68` and runs fragment 83
+  on the copy, with `0x200` for where it was called from.
+
+In the Free Battle path fragment 6 is at `0x8015AF10`, and the pool has `0x4BA660`
+bytes free at the rule sets with 8 MB.
+
+### The rule viewer (fragment 83, vram 0x82C00000)
+
+`fragment83_main(where, rules)`. Its state is `D_82C04C38`: `+3` the number of lines,
+`+0x14` and `+0x18` the two arguments, `+0x1C` the heading, and from `+0x50` the lines,
+0x1CC bytes each: `+0x00` 0 for a line with something behind it or 1 for the one that
+opens the species, `+0x04` the title (0x50), `+0x54` what is behind it (0x168).
+
+- `func_82C04350` makes the lines: fifteen functions in turn, each writing the next
+  line and answering whether it did, from text bank 0x15 by the rule set's kind and
+  flags and by `where`.
+- **There is room for ten**, in the state and on the screen, and a player's rule set
+  in Free Battle can have ten. So the clauses are one line, "Moves that cannot be
+  known", with a sentence behind it for each clause the rule set has, and a rule set
+  with ten lines already does not get it. `Mod_RuleViewerLines`, in place of
+  `func_82C04350`, adds it.
+- **The heading** is "Check rule " and a name: by kind a text of bank 0x13, or for
+  kind 0xE the record's own name (`func_82C0458C`, which runs after the lines). For a
+  record with a name and another kind, the mod's, `Mod_RuleViewerLines` gives the
+  viewer a copy that says it is 0xE. Hooking `func_82C0458C` itself would not do: two
+  of the places its jump table leads to are under where a `call` thunk would go.
+- The move names in the mod's sentences are the game's (text bank 6, in the moves'
+  order), which the viewer does not load; `mod/tests/test_clauses.py` holds them
+  against the ROM.
+
+### The rule editor (fragment 82, vram 0x82D00000)
+
+RULE EDIT, under OPTIONS (game state 11, fragment 22) on "Please Select". **[C]** for
+what the mod uses.
+
+- The player's rule sets are at `D_82D2393C`, their count at `D_82D23938`, read by
+  `func_82D0034C` as the editor starts; `D_82D23D84` is what the editor is doing, and
+  `D_82D23D88` the buttons pressed.
+- One widget (number 8, state `D_82D23830`) is the list of them and the page for one:
+  `+0` what it shows (1 to 3 the list; 4 the page; 5 the keyboard; 6 the page with the
+  species open over it; 7 and 8 the page dimmed, a level being set), `+1` the cursor.
+  The rule set on the page is `D_82D238F0`, `+0xC0` from there. `func_82D03CC0` draws
+  all of it and `func_82D00BB4` is the page's input.
+- **The page** is seven rows by number: name, who qualifies, level, level total, "Use
+  items?", "Hold identical items?" (skipped while items are not used), OK. A question
+  at `x + 0x3A` with its answer ending at `x + 0x1DA`, 30 apart from `y + 0x20` with a
+  row left out for "(No restrictions)", and OK at `y + 0x10A`. `func_82D0087C` is A on
+  a row, by a jump table of the seven.
+- **The clauses are rows 6 to 8, and OK row 9** (`mod/src/rule_edit.c`).
+  `Mod_RuleEditInput` replaces the input: the game's cursor mover over ten rows, A on
+  a clause's row flipping its bit, and OK handed to the game's code as row 6.
+  `Mod_RuleEditDraw`, a detour of the drawing, adds the three rows, OK and the hand
+  on any of the four. The game's own OK is given up by two instructions changed in
+  place: its text looked up as 0x10, the bank's empty one, and its hand put off the
+  screen.
+- **The window** of the page is `D_82D07174`: (74, 113, 498, 326), among three
+  rectangles the widget's window goes between. Ten rows need more, and
+  `Mod_RuleEditSetup` makes it (74, 93, 498, 356): exactly as high as the window of
+  species that opens over it (widget 9: 93 to 449), so that one goes on hiding it. The
+  mod's rows are then 28 apart.
+- A new rule set has flags `0x0C000000` (`func_82D00704`), its clauses off.
+- "Make rules" asks for a place on the list first; B at the top leaves, and OPTIONS
+  asks whether to save on the way out.
+
+### Saved rule sets
+
+A rule set of the player's own is saved as 0x48 bytes (`func_800519AC` to that form,
+`func_80051890` from it; `src/517E0.c`): `+0`, `+1` the levels, `+2` their total, `+4`
+to `+9` a byte for each of flags 31 to 26, `+0xB` the kind, `+0x14` the species,
+`+0x34` the name. `+0xA` and `+0xC` to `+0x13` are cleared and not read.
+
+- **The clauses go in `+0xA`**: the low byte of the flags on the way out, its low
+  three bits on the way in. Both functions run with the mod nowhere near, so they are
+  changed in place (`mod/stock_patches.txt`); each took a flag at a time through
+  memory, and done in registers there is room for one more byte.
+- A save file from before has 0 there, which is no clauses. The original game reads a
+  rule set saved by the mod as one without, and saving it there loses them.
+
+### Where the clauses are held to
+
+`mod/src/clauses.c`, by the rule set in force on the entry screen
+(`Clauses_Of(Rules_InForce())`): `Clauses_MoveRefused(rules, mon, move, slot)` is
+whether a Pokémon may know a move in a slot beside its other moves, and
+`Clauses_Broken` whether it knows any it may not.
+
+- The editor's list of moves leaves out what is refused for the slot it is opened on.
+- The ENTER menu and a registered team's OK, as under "Rules" for fragment 14.
+- Nothing is checked in a battle, and nothing needs to be: no move gets onto a team
+  another way. The team's own menu has no check for the same reason.
+
+The moves are `mod/data/clause_moves.inc.c`, held against Pokémon Showdown's data by
+the tests: the ones that raise the user's evasion, the ones marked `ohko`, and the
+ones that leave the foe `trapped`.
 
 ## Pokémon helpers (main segment)
 
@@ -860,8 +1156,13 @@ ID), but DVs play no part in that.
 - **The mod's name** is eight bytes per controller port at `0x80000334`, empty for none,
   in `osAppNMIBuffer` like the picture (below). Keeping one in the window writes it there
   and to the team being chosen; `Mod_PartyInit` (in place of `func_81302EE4`) gives it
-  to the player's team on every later visit; and `func_82601BB0` is patched to leave a
-  human's name alone when the port has one. Seven characters, a Game Boy trainer
+  to the player's team on every later visit; and `func_82601BB0` is patched to write
+  the port's name, when it has one, in place of "%dP". It writes it rather than
+  trusting what was handed on: the Challenge Cup goes from the rule select straight to
+  fragment 20 (`func_80068E14`, when `func_8006A3E0` gives 2), so no entry screen fills
+  `settings + 0x904`, and a player with a name was shown none there (found 2026-10-13).
+  Afterwards `func_8006B0B8` copies fragment 20's names back to the settings on that
+  path. Seven characters, a Game Boy trainer
   name's length: twelve bytes a side is the room downstream, but the order screen's
   name plate is narrow.
 - **A title** is a number in text bank 0x48 (ROM `0x01D95240`: a count of 70, that many
@@ -876,8 +1177,9 @@ ID), but DVs play no part in that.
   window steps through one number per different text, the player's own first
   (`tools/mod/gen_trainer_titles.py` → `mod/data/trainer_titles.inc.c`, 40 of them), and
   reads the text from the ROM, the bank not being loaded on the entry screen.
-- **`osAppNMIBuffer`, as the mod uses it**: `0x80000334` names (4 x 8), `0x80000354`
-  titles (4), `0x80000358` pictures (4). The first 0x18 bytes are untouched.
+- **`osAppNMIBuffer`, as the mod uses it**: `0x80000330` whether Free Battle's rule
+  set is the mod's (see "OU Rules"), `0x80000334` names (4 x 8), `0x80000354` titles
+  (4), `0x80000358` pictures (4). The first 0x14 bytes are untouched.
   `mod/tests/test_trainer_pictures.py` checks the layout against the patches.
 
 ## Names
@@ -923,9 +1225,9 @@ The entry screen (`func_813029F0`, fragment 14's only way in) pushes the pool st
 loads its assets, calls `func_8130251C` (the mod's boot hook, so the mod fragment is
 allocated inside that state) and pops the state on the way out, which frees the mod.
 
-Measured in the rental picker with the mod loaded (0x9770 bytes at `0x80253290`, of
-which 0x2008 are the trainer window's picture): with 4 MB of RAM the pool has `0x23000`
-bytes free (143 KB). With 8 MB it has exactly 4 MB more (measured on an earlier build,
+Measured in the rental picker with the mod loaded (0xDDB0 bytes at `0x80253290`, of
+which 0x2008 are the trainer window's picture): with 4 MB of RAM the pool has `0x1E350`
+bytes free (124 KB). With 8 MB it has exactly 4 MB more (measured on an earlier build,
 whose mod was 0x4AC0 bytes: `0x427CB0` against `0x27CB0`).
 
 The figure does not move while a rental is opened, edited, renamed, made shiny and
@@ -933,6 +1235,13 @@ entered, or while the trainer window reads a picture and a title: the screen and
 allocate what they need up front. Without the mod the 4 MB figure would be 38 KB higher
 (`0x2C780`). In the battle that follows, 4 MB leaves `0x1E2A0` free, with the mod
 unloaded (from an earlier build; the mod is not in memory by then).
+
+Free Battle's rule select and the rule viewer each load a copy of the mod for a call
+(two for the rule select, as it starts and as it ends), and RULE EDIT keeps one. All
+are light screens: the rule select has `0x4BA660` bytes free with 8 MB, the viewer
+`0x4CD2B0`, RULE EDIT `0x4D20D0`, each 4 MB less without the Expansion Pak, against
+57 KB a copy. A `call` thunk has nothing to fall back on if a copy cannot be loaded,
+the function it stands for being in the copy.
 
 BizHawk's Ares64 core always has 8 MB. `tools/mod/make_4mb_rom.py` writes a test copy of
 a ROM whose `osGetMemSize()` returns 4 MB; run it from power on, not from a savestate.
@@ -950,12 +1259,15 @@ build tools or to the commit of the decompilation the mod sits on.
 
     python3 -m unittest discover -s mod/tests       # tools and checksums; WSL or Windows; seconds
     python3 tools/mod/checksums.py check            # the built mod against the record
-    python3 -m unittest discover -s mod/tests/emu   # the game in BizHawk; Windows; about 12 minutes
+    python3 -m unittest discover -s mod/tests/emu   # the game in BizHawk; Windows; about 25 minutes
 
 1. **Tool tests** (`mod/tests/test_*.py`): the ROM checker, relocation tool, injector,
    patch tool, the generated move, keyboard, trainer title and trainer face tables, what
    the mod assumes about the ROM's trainer pictures, and the directory it gives them,
-   read the way the game reads one.
+   read the way the game reads one; the clauses' moves against Pokémon Showdown's data
+   and the game's names for them, and the mod's rule set against the game's records.
+   One asks the decompilation's sources whether every hooked function is still
+   assembly there, which an old extract can hide.
 2. **Checksums** (`mod/checksums.txt`): SHA-1 of the original ROM, the mod ROM and the
    patch. The build is repeatable, so the same sources always give the same bytes.
    `build_mod.sh` reports the comparison at the end of every build, and
@@ -975,6 +1287,9 @@ build tools or to the commit of the decompilation the mod sits on.
    - `test_items.py`: what the ITEM list offers, and an item from it reaching the party.
    - `test_trainer.py`: Change Trainer, its window and keyboard, and the picture, name
      and title on the screens up to and after a battle, for one player and for two.
+   - `test_clauses.py`: the mod's rule set on Free Battle's list and in the viewer; a
+     rental and a registered team refused for a move, and the editor's list of moves;
+     Anything Goes as it was; RULE EDIT's rows, and a rule set saved with clauses.
    - `test_without_expansion_pak.py`: the 4 MB test ROM.
    - Stats are compared with the Generation 2 formula worked out in Python from the base
      stats in the ROM; the move list with `mod/data/legal_moves.inc.c`; a saved name
@@ -1018,6 +1333,7 @@ the old and new base:
         src/fragments/14/fragment14_FAD40.c src/fragments/14/fragment14_109280.c \
         src/fragments/20/fragment20_1280F0.c src/fragments/20/fragment20_128B10.c \
         src/fragments/20/fragment20_12C460.c \
+        src/fragments/6 src/fragments/82 src/fragments/83 src/517E0.c \
         hand_asm                                                                        # hooked code changed?
 
 If both are empty, rebase, rebuild (`wsl_build.sh`, then `wsl_build.sh mod`) and run the
@@ -1077,9 +1393,10 @@ and whoever has the ROM attaches the patch they built:
   `.github/`. Its screenshots are in `mod/images/`: test screenshots from
   `.emu/test/remote`, reduced to 256 colours with Pillow
   (`image.quantize(256, method=Image.Quantize.FASTOCTREE)`, saved with `optimize=True`),
-  which gives the same bytes every time. Four are shots the emulator tests take:
+  which gives the same bytes every time. Six are shots the emulator tests take:
   `menu` is `edit_entry`, `editor` is `fields_shiny`, `moves` is `list_hidden_power`
-  and `keyboard` is `keyboard_upper`. `team_menu`, `team`, `trainer` and `versus` were
+  and `keyboard` is `keyboard_upper`; `clause` is `clause_refused` and `rule_edit` is
+  `rule_page_clauses`, from `test_clauses.py`. `team_menu`, `team`, `trainer` and `versus` were
   taken by hand in one sitting, with three rentals on the team (Abra, Aipom and
   Alakazam), so that they tell one story; the
   last two were taken again for v0.4.0 by a script through the tests' harness, with the
@@ -1127,6 +1444,15 @@ load, read, find, write, eval, reboot). BizHawk lives in `.emu/BizHawk`; output 
   Against a second player there is no difficulty to pick, so that path is one A shorter.
   `mod/tests/emu/harness.py` has these as `BOOT`, `FREE_BATTLE` and `SCENES`.
 - `tools/mod/emu.py script mod/lua/goto_rental.txt` replays that path from `whitecity`.
+- The picker lists the rentals by name, four to a row, not in the rental table's
+  order: Diglett is the first of the tenth row.
+- Free Battle's rule sets: the fourth A of that path opens them with the cursor on
+  Anything Goes; Down five times and A opens the list of the player's own. R is "Check
+  Rules".
+- RULE EDIT: Start, Start, A ("Please Select", with the cursor on the map); Left, Up
+  (OPTIONS), A; Down twice, A. "Make rules" then wants A twice, for a place on the
+  list and then the page. `harness.py` has these as `SELECT`, `RULE_EDIT` and
+  `MAKE_RULES`.
 - A savestate carries the cartridge's save data with it, so to test saving, `reboot` and
   walk in from the title screen instead of loading one.
 - `player 2` makes the following presses come from controller 2. That needs
@@ -1187,7 +1513,7 @@ Judgment calls, easy to revisit:
 - Not enforced: move combinations that cannot coexist, and level requirements
   (the stock rentals ignore those too).
 
-Tests: `python3 -m unittest discover -s mod/tests` (22 tests).
+Tests: `python3 -m unittest discover -s mod/tests` (143 tests, of every tool).
 
 ## Open questions (milestone M1)
 

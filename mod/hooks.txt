@@ -34,3 +34,33 @@ jump    func_813114B8   Mod_DrawMenuRow
 
 # Draws a popup menu.
 jump    func_81311650   Mod_DrawMenu
+
+# Handles input while a popup menu is open.
+jump    func_81311894   Mod_MenuInput
+
+# Draws the detail panel. Runs from the mod only so that the colour it gives a move's
+# name can be asked of the mod (mod/asm_patches.txt).
+jump    func_8130DEB8   orig_func_8130DEB8
+
+# Draws the list of registered teams. Runs from the mod only so that the rule set's
+# name in its heading can be asked of the mod (mod/asm_patches.txt).
+jump    func_8130C570   orig_func_8130C570
+
+# Free Battle's rule select (fragment 6): sets the screen up, reading the player's own
+# rules from the save file; and ends it, filling in what was chosen. The second has a
+# jump table.
+call    func_83101C80   Mod_RuleSelectSetup
+call    func_8310065C   Mod_RuleSelectDone
+
+# The rule viewer (fragment 83): makes the lines for the rule set it is given.
+call    func_82C04350   Mod_RuleViewerLines
+
+# The rule editor (fragment 82), which the mod stays loaded for as it does for the entry
+# screen: this reads the player's rule sets from the save file as the editor starts.
+boot    func_82D0034C   Mod_RuleEditSetup
+
+# Handles input on the editor's page for one rule set.
+jump    func_82D00BB4   Mod_RuleEditInput
+
+# Draws the editor's lists and that page. It has two jump tables.
+detour  func_82D03CC0   Mod_RuleEditDraw

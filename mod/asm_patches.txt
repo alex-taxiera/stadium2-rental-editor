@@ -11,3 +11,18 @@ func_8130DA04   8130DDC8  addiu       $a1, $a1, 0x78
 # Team menu: ask the mod for its result instead of the menu itself (func_81311C70),
 # with the same arguments.
 func_81303648   81303670  jal         Mod_PollTeamMenu
+
+# ENTER menu: whether "Yes" is greyed out is asked of the mod, which adds the move
+# clauses to the game's own reason (func_8130CE3C), with the same argument. In its
+# drawing and in its input.
+func_8130DA04   8130DC6C  jal         Mod_EnterYesDisabled
+func_8130EC9C   8130ECEC  jal         Mod_EnterYesDisabled
+
+# Detail panel: the colour of each move's name is set by the mod (func_81602DA4, with
+# the move's type), which makes it grey for a move the rules reject.
+func_8130DEB8   8130E288  jal         Mod_PanelMoveColorShim
+
+# List of registered teams: the rule set's name for its heading is asked of the mod
+# (func_8004C874, with the text bank and the rule set's text), which gives the name in
+# the record of a rule set that has no text.
+func_8130C570   8130CA40  jal         Mod_RuleName
