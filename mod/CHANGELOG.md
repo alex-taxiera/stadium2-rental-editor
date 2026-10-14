@@ -4,6 +4,47 @@ What changed in each release of the patch, newest first. A release's heading is 
 and the text under it is published as the release's notes; see "Releases" in
 [NOTES.md](NOTES.md).
 
+## v0.5.0
+
+Rules that keep moves out, a rule set for competitive play, and nothing left to unlock in
+a Free Battle.
+
+- **Move clauses.** A rule set can now keep moves out: no Double Team or Minimize; no
+  Fissure, Guillotine or Horn Drill; no Baton Pass together with Mean Look or Spider
+  Web. The editor does not offer such a move, a Pokémon that knows one cannot be entered
+  (Yes is greyed out and the hand starts on EDIT, so you can change it), and a registered
+  team with one on it cannot be chosen.
+- **OU Rules**, in Free Battle: on "Please Select Rules" go down to Edit Rules, and it is
+  on the list after your own. It is Anything Goes with all three clauses and without
+  Mewtwo, Mew, Lugia, Ho-Oh and Celebi. Check Rules (R) lists the clauses with the rest.
+- **RULE EDIT**, under OPTIONS, asks three more questions on a rule set's page, one for
+  each clause, and saves the answers with the rule set.
+- **Every stage from the start.** Free Battle's list of stages has all 30, the gyms, the
+  Elite Four, Silver Cave and the rest, on a new save. The original shows six until the
+  others have been met in the Stadium.
+- **Every Pokémon for rent.** Under Anything Goes and Prime Cup rules in Free Battle,
+  Mewtwo, Mew, Lugia, Ho-Oh and Celebi are on the rental list with the rest, at
+  level 100. Mew and Celebi are the game's own rentals from Round 2. Mewtwo, Lugia and Ho-Oh
+  start with no DVs and no Stat Exp, as the game's Mew and Celebi do, and the moves the
+  Rival's have in Round 2; edit them as you like.
+
+Things to know:
+
+- Your save file is not changed to show the stages: it still records the ones you meet,
+  for the original game. Nothing else the game keeps for later, such as Round 2, is
+  unlocked.
+- Under Anything Goes the rental list has five more Pokémon in it, so some are one or
+  two places further along than you remember.
+- A rule set's clauses are saved where the original game leaves room unused. The
+  original shows such a rule set without them, and saving it there loses them.
+- OU Rules offers the teams registered under Anything Goes, and greys out any it
+  refuses.
+- Not tried: the clauses on a Game Pak's Pokémon, and a second player renting one of
+  the five.
+
+Tested in BizHawk with its Ares64 core, with and without an Expansion Pak, and this
+release has been run on a real Nintendo 64.
+
 ## v0.4.0
 
 Change Trainer now has every face of every trainer, where it had one each.
