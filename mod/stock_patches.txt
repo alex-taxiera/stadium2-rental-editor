@@ -242,3 +242,11 @@ func_80051890   80051968  nop
 func_80051890   8005196C  nop
 func_80051890   80051970  nop
 func_80051890   80051974  nop
+
+# Free Battle's stages: func_831000FC lists a stage if it is one of the first three or
+# the save file has met a battle there (func_80054AA0, a bit per stage), which on a new
+# save leaves six of the thirty. Here all thirty are "one of the first": the test is
+# made twice, as the loop starts and in the delay slot of the branch that goes round,
+# and the save file is not asked. It still notes each stage as it is met.
+func_831000FC   83100130  slti        $at, $s0, 0x1E
+func_831000FC   8310015C  slti        $at, $s0, 0x1E

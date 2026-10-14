@@ -5,7 +5,8 @@ you pick a rental Pokémon. It opens an editor for the rental's nickname, moves,
 happiness, DVs and Stat Exp, limited to what the Game Boy games allow, and the edited
 Pokémon is what enters the battle or the registered team. A rental already on your team
 can be edited again where it is, and you can choose your own trainer picture, name and
-title. The rules get three move clauses, and Free Battle a rule set that has them.
+title. The rules get three move clauses, and Free Battle a rule set that has them, every
+stage from the start, and all 251 Pokémon for rent.
 
 | | |
 |---|---|
@@ -61,6 +62,11 @@ Minimize; no Fissure, Guillotine or Horn Drill; no Baton Pass together with Mean
 Spider Web. **OU Rules**, on the list Free Battle's "Edit Rules" opens, is Anything Goes
 with all three and without Mewtwo, Mew, Lugia, Ho-Oh and Celebi. RULE EDIT, under
 OPTIONS, can give a rule set of your own any of the three.
+
+**Nothing to unlock** for a Free Battle: all 30 stages are on its list on a new save
+file, where the original shows six until the others have been met in the Stadium, and
+Mewtwo, Mew, Lugia, Ho-Oh and Celebi are for rent under Anything Goes and Prime Cup
+rules, which had every Pokémon but those five.
 
 It works in Free Battle and when registering a team, for either player, with or without
 an Expansion Pak, and a registered team keeps its edits. The save file is laid out as the

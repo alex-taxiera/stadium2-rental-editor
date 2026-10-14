@@ -16,6 +16,11 @@ glabel Trainer_GetState
     jr          $ra
      addiu      $v0, $v0, %lo(gTrainerState)
 
+glabel Rentals_GetOwn
+    lui         $v0, %hi(gRentalTable)
+    jr          $ra
+     addiu      $v0, $v0, %lo(gRentalTable)
+
 # Where C code would reach into a stock fragment's data at more than one offset, the
 # address is taken here as well: the compiler may share one `lui` between the offsets,
 # which the loader can get wrong for a fragment as it can for the mod.
@@ -56,3 +61,8 @@ dlabel gEditState
 .balign 16
 dlabel gTrainerState
     .space 0x20C0
+
+# A table of MAX_RENTALS rental Pokemon, rounded up; see mod/src/rentals.c
+.balign 16
+dlabel gRentalTable
+    .space 0x1790

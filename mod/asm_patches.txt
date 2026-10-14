@@ -26,3 +26,8 @@ func_8130DEB8   8130E288  jal         Mod_PanelMoveColorShim
 # (func_8004C874, with the text bank and the rule set's text), which gives the name in
 # the record of a rule set that has no text.
 func_8130C570   8130CA40  jal         Mod_RuleName
+
+# Entry screen: the table of rental Pokemon is asked of the mod (func_80071B20, with
+# the archive of them and the number of the rule set's table), which in a Free Battle
+# gives one of its own with the five Pokemon the game's leaves out.
+func_8130251C   813025B0  jal         Mod_RentalTable

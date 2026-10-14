@@ -45,6 +45,11 @@ PICKER_STATE = 0x81317800      # D_81317800
 INTRO_VRAM = 0x82600000        # fragment 20: the opponent's introduction, and the result after a battle
 INTRO_STATE = 0x8261A490       # D_8261A490: its mode (0 before a battle, 1 after), and at +0xC8 each side's picture
 PARTY_CELL = 0x15390           # in the picker's state: the first Pokemon entered
+PICKER_RENTALS = 0x81331978    # the table of rental Pokemon the picker lists: a count, and from +4 the records
+RENTAL_SIZE = 0x18             # a record: its level, then its species
+RENTAL_ARCHIVE = 0x1708000     # the ROM's tables of them: at +0x10 an offset and a size for each
+PICKER_COLUMNS = 4
+NAME_RANK = 0x8009F97F         # D_8009F97F: a byte per species, its place in the alphabet, which the picker lists by
 PARTY_STATE = 0x15370 + 0x4DBD   # in the picker's state: what the team being chosen is doing
 # Its menu is up; the list has the cursor; its own box has; it waits on the detail panel.
 PARTY_MENU, PARTY_LIST, PARTY_BOX, PARTY_PANEL = 4, 0xD, 0x11, 0xE
@@ -74,6 +79,7 @@ DEFAULT_PICTURE = (0x40, 1)    # what the game gives a human: trainer, expressio
 
 RULE_SELECT_VRAM = 0x83100000  # fragment 6: Free Battle's players, rule set and stage
 RULE_SELECT_STATE = 0x831039B0 # D_831039B0: at +0xCC the player's own rule sets, at +0x2EC how many
+RULE_SELECT_STAGES = 0xAC      # in it: the stages on its list, a byte each, and at +0xCB how many
 VIEWER_VRAM = 0x82C00000       # fragment 83: what "Check Rules" shows
 VIEWER_STATE = 0x82C04C38      # D_82C04C38: at +3 how many lines, at +0x1C its heading, at +0x50 the lines
 VIEWER_LINE = 0x1CC            # a line: its title at +4, what is behind it at +0x54
@@ -107,6 +113,28 @@ def rom_bytes(address: int, length: int) -> bytes:
 
 def base_stats(species: int) -> list:
     return list(rom_bytes(BASE_STATS + species * 22, 6))
+
+
+def rental_table(number: int) -> list:
+    """The records of one of the original ROM's tables of rental Pokemon."""
+    with BASE_ROM.open("rb") as f:
+        f.seek(RENTAL_ARCHIVE + 0x10 + number * 0x10)
+        offset, = struct.unpack(">I", f.read(4))
+        f.seek(RENTAL_ARCHIVE + offset)
+        count = f.read(4)[0]
+        return [f.read(RENTAL_SIZE) for _ in range(count)]
+
+
+def picker_place(species: int, listed: list) -> tuple:
+    """(row, column) of a species in the picker, which lists `listed` by name."""
+    order = sorted(listed, key=lambda one: rom_bytes(NAME_RANK + one, 1)[0])
+    return divmod(order.index(species), PICKER_COLUMNS)
+
+
+def to_rental(species: int, listed: list) -> list:
+    """In the picker, from its first Pokemon: the presses that put the cursor on a species."""
+    row, column = picker_place(species, listed)
+    return presses(DOWN, row, 12) + presses(RIGHT, column, 12)
 
 
 def base_pp(move: int) -> int:
@@ -480,6 +508,22 @@ class Session:
         state = base + RULE_SELECT_STATE - RULE_SELECT_VRAM
         count = self.read(state + 0x2EC, 1)[0]
         return [Rules(self.read(state + 0xCC + i * RULES_SIZE, RULES_SIZE)) for i in range(count)]
+
+    def stages(self) -> list:
+        """The stages on Free Battle's list, by their numbers."""
+        base, _ = self.fragment(RULE_SELECT_VRAM)
+        if base == 0:
+            raise AssertionError("Free Battle's set-up screen is not up")
+        data = self.read(base + RULE_SELECT_STATE - RULE_SELECT_VRAM + RULE_SELECT_STAGES, 0x20)
+        return list(data[:data[0x1F]])
+
+    def rentals(self) -> list:
+        """The records of the table of rental Pokemon the picker lists."""
+        base, _ = self.fragment(PICKER_VRAM)
+        table = self.u32(base + PICKER_RENTALS - PICKER_VRAM)
+        count = self.read(table, 1)[0]
+        data = self.read(table + 4, count * RENTAL_SIZE)
+        return [data[i:i + RENTAL_SIZE] for i in range(0, len(data), RENTAL_SIZE)]
 
     def rule_page(self) -> tuple:
         """(what RULE EDIT is showing, its cursor's row, the rule set on its page)."""
