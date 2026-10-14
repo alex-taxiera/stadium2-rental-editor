@@ -24,6 +24,8 @@ SAND_ATTACK = 28
 # of the second row, and knows Sludge Bomb, Protect, Toxic and Spider Web.
 TO_DIGLETT = presses(DOWN, 9, 12)
 TO_ARIADOS = presses(DOWN, 1, 12) + presses(h.RIGHT, 3, 12)
+# Under Anything Goes the list has every Pokemon, and Celebi comes before Diglett.
+TO_DIGLETT_OF_ALL = TO_DIGLETT + press(h.RIGHT, 12)
 # The ENTER menu's rows.
 YES, NO, ITEM, EDIT = range(4)
 
@@ -208,7 +210,7 @@ class AnythingGoesTest(h.EmulatorTest):
     """The clauses are the rule set's: Anything Goes has none."""
 
     def test_anything_goes_refuses_nothing(self):
-        self.start(*TO_DIGLETT, *h.OPEN_PANEL)
+        self.start(*TO_DIGLETT_OF_ALL, *h.OPEN_PANEL)
         self.assertEqual(self.s.read(h.CHOSEN_RULES, 1), b"\0")
         rules = self.s.rules()
         self.assertEqual(rules.address, h.ANYTHING_GOES)
@@ -235,7 +237,7 @@ class RegisteredTeamTest(h.EmulatorTest):
 
     def test_a_registered_team_the_rules_refuse_cannot_be_chosen(self):
         # Under Anything Goes: Diglett, with Fissure, registered as a team.
-        self.start(*TO_DIGLETT, *h.OPEN_PANEL, *press("A", 90), *press("Start", 60), *press(DOWN, 15),
+        self.start(*TO_DIGLETT_OF_ALL, *h.OPEN_PANEL, *press("A", 90), *press("Start", 60), *press(DOWN, 15),
                    *press("A", 500))
         self.s.reboot()
 

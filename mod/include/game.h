@@ -153,6 +153,49 @@ extern u8 *D_8133197C;
 #define ENTRY_SETTINGS_MODE 0x950 /* u16: the session's mode */
 #define MODE_FREE_BATTLE 0x200    /* in a mode's upper byte */
 
+/* Whether a mask of species, as a rule set has for who may enter, has a bit set; the
+ * first species is bit 0. */
+s32 func_80071CD0(u8 *mask, s32 bit);
+#define SpeciesMask_Has func_80071CD0
+
+/* --- Rental Pokemon ---
+ *
+ * A table of them is a count and that many records, in the order of their numbers. The
+ * entry screen takes the one its rule set names from an archive of the ROM, and lists
+ * it; the picker makes a Pokemon of a record when it shows one (func_80071E48).
+ */
+
+typedef struct Rental {
+    /* 0x00 */ u8 level;
+    /* 0x01 */ u8 species;
+    /* 0x02 */ u8 item; /* none, in every table */
+    /* 0x03 */ u8 unk03;
+    /* 0x04 */ u8 moves[MAX_MOVES];
+    /* 0x08 */ u8 ppUps; /* two bits a move */
+    /* 0x09 */ u8 happiness;
+    /* 0x0A */ u16 statExp[5];
+    /* 0x14 */ u16 dvs;
+    /* 0x16 */ u8 unk16[2];
+} Rental; /* size = 0x18 */
+
+typedef struct RentalTable {
+    /* 0x00 */ u8 count;
+    /* 0x01 */ u8 unk01[3];
+    /* 0x04 */ Rental rentals[1];
+} RentalTable;
+
+RentalTable *func_80071B20(void *archive, s32 table); /* a table of the archive, or NULL */
+#define Rentals_Table func_80071B20
+
+/* The level 100 table, Anything Goes's and the Prime Cup's: every Pokemon but Mewtwo,
+ * Mew, Lugia, Ho-Oh and Celebi. */
+#define RENTALS_PRIME_CUP 1
+
+/* The picker's room for a list of rentals is 0xFE (func_81307D08); the mod's own table
+ * has every Pokemon once. See mod/src/rentals.c. */
+#define MAX_RENTALS NUM_SPECIES
+RentalTable *Rentals_GetOwn(void); /* see state.s */
+
 /* What a battle and the screens before it share. A player's own rules are kept in it;
  * with any other rule set that room is cleared when the rules are chosen, and unused. */
 extern u8 *D_8009DF70;

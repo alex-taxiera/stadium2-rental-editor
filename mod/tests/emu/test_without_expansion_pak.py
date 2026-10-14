@@ -21,11 +21,24 @@ WATCH = ('eval pool_low = 0x7FFFFFFF; event.onframeend(function() '
          f'local free = memory.read_u32_be(0x{h.POOL_FREE - 0x80000000:X}, "RDRAM"); '
          'if free < pool_low then pool_low = free end end, "pool_low")')
 UNWATCH = 'eval event.unregisterbyname("pool_low"); return pool_low'
+LUGIA = 249
 
 
 @unittest.skipUnless(h.AVAILABLE, h.SKIP_REASON)
 class WithoutExpansionPakTest(h.EmulatorTest):
     rom = h.ROM_4MB
+
+    def test_every_pokemon_is_for_rent(self):
+        self.start()
+        free = self.s.u32(h.POOL_FREE)
+        listed = [record[1] for record in self.s.rentals()]
+        self.assertEqual(listed, list(range(1, 252)))
+        # One of the mod's own three, from the far end of the list, with its model.
+        self.do(*h.to_rental(LUGIA, listed), *h.OPEN_PANEL, "wait 60")
+        panel = self.s.picker_panel()
+        self.assertEqual(panel.state, h.Panel.MENU)
+        self.assertEqual(h.Record(self.s.read(panel.pokemon, h.RECORD_SIZE)).species, LUGIA)
+        self.assertEqual(self.s.u32(h.POOL_FREE), free)
 
     def test_editor_needs_no_more_memory_than_the_mod_itself(self):
         self.start()

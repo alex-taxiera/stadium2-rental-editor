@@ -164,6 +164,23 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
   - Not tried: a Game Pak's Pokémon, which is all a rule set of the player's own
     takes, and the only way to a registered team with one of the five on it (no
     rental is one); a second player; anything but Free Battle.
+- **Nothing to unlock in a Free Battle.** Its list of stages has all 30 on any save
+  file, where the game lists a stage once a battle has been met there, and Mewtwo,
+  Mew, Lugia, Ho-Oh and Celebi are for rent under Anything Goes and Prime Cup rules,
+  whose table had every Pokémon but them. The save file is not written to. See "What a
+  save unlocks, and the five that could not be rented".
+  - Checked on an empty save: the 30 stages in the list's state and on screen, to
+    SILVER CAVE at 29/30; the 251 in the picker's table, the game's 246 records as
+    they were; each of the five opened from where the alphabet puts it, with its icon
+    and its stats by the formula; Mewtwo in the editor, with its own list of moves,
+    and entered; Lugia in a battle with its four moves and its model; a team
+    registered with Mewtwo on it refused under OU Rules and chosen under Anything
+    Goes; the list under OU Rules and under Poké Cup rules the game's own table,
+    record for record; the 4 MB build with the 251 and Lugia opened, the pool's free
+    count not moving.
+  - Not tried: the Prime Cup's rules in Free Battle (the same table and the same code
+    as Anything Goes, by another rule set); a second player; a battle on any of the
+    24 stages.
 - An earlier build has been run on a real Nintendo 64 (reported 2026-10-12; which build,
   the cart and whether an Expansion Pak was fitted are not recorded here). So has the
   build released as v0.4.0, which has the editor on one of the team and is the first
@@ -1003,12 +1020,102 @@ The moves are `mod/data/clause_moves.inc.c`, held against Pokémon Showdown's da
 the tests: the ones that raise the user's evasion, the ones marked `ohko`, and the
 ones that leave the foe `trapped`.
 
+## What a save unlocks, and the five that could not be rented
+
+What a Free Battle between people is missing on a cartridge nobody has played. Looked
+for 2026-10-13 by who reads the save file's records of progress: nothing else of a
+Free Battle's does. The bytes of record `0x13` (`func_800510CC`: `+1`, `+0x2F` on,
+`+0x3F` on, `+0x4B`) are read by the Stadium, the map and the Gym Leader Castle
+(fragments 43, 44, 45) and by fragment 75; the two at `+0x54` of record `0x14` are the
+gift Pokémon (fragments 30 and 58).
+
+### Stages
+
+- Free Battle's list (fragment 6) has 30 places: Random Select, then 29 stages. Their
+  names are text bank 0x2C from 0x1F on: FREE BATTLE, POKé CUP, CHALLENGE CUP, LITTLE
+  CUP, PRIME CUP, CLASSROOM, the eight gyms and towns of Johto with TEAM ROCKET among
+  them, the ELITE FOUR's four, CHAMPION, the eight of Kanto, SILVER CAVE and VS RIVAL.
+  **[C]** on screen, as far as SILVER CAVE.
+- **A stage is listed once a battle has been met there.** The save file has a bit for
+  each, a `u32` at `+0xC` of record `0x14` (`func_80051138(0)`): `func_80054AA0(bit)`
+  tests one and `func_80054AF4(bit)` sets one (`src/517E0.c`). `D_831038E0` has the
+  bit of each place on the list, and `func_831000FC` lists place `i` if `i < 3` or
+  its bit is set, writing the places listed to `state + 0xAC` and their count to
+  `+0xCB`. A new save gets bits `0x17` to `0x1C` (`func_80052928`), the first six
+  places. Fragment 20 sets a stage's bit as its battle is introduced
+  (`func_826028E0`, by `func_8006AD10` of the mode).
+- **The mod lists all 30** by making the "first three" thirty: the two `slti $at,
+  $s0, 3` of the loop in `func_831000FC`, changed in place (`mod/stock_patches.txt`).
+  The save file is not asked and not written; fragment 20 goes on setting the bits, so
+  a save earns its stages for the original game as before.
+- The cursor starts on the second place (`D_8009F864`, which also remembers the last
+  choice until power off), and the first six places are the same six as on a new
+  save, so the tests' A at this step picks the stage it always did.
+
+### Rental tables
+
+Archive 0xB (ROM `0x1708000`) has 72 tables. The first five are rentals (see "Rental
+data in ROM"), and a rule set names one by number (`+0x3C`):
+
+| Table | | Rule sets |
+|---|---|---|
+| 0 | 86, level 5 | Little Cup |
+| 1 | 246, level 100: all but Mewtwo, Mew, Lugia, Ho-Oh, Celebi | Anything Goes, VS Rival, Prime Cup |
+| 2 | 248, level 100: those and Mew and Celebi | Prime Cup of Round 2 (kind 13) |
+| 3, 4 | 246, level 50 (one table under two numbers) | Poké Cup, Gym Leader Castle |
+
+- **Table 2 is not table 1 with two more**: its Pikachu and Psyduck know other moves.
+  The other 244 are the same, byte for byte.
+- Its Mew and Celebi have no DVs, no Stat Exp, happiness 127 and no PP Ups: the
+  weakest a level 100 can be, where most rentals have some of each.
+- **Free Battle's Prime Cup is kind 12**, Round 1's (`D_831038FF` has the kinds of
+  its first five rule sets: 5, 12, 7, 0, 1), so it never rents from table 2.
+- **Mewtwo, Lugia and Ho-Oh are in no rental table.** The rest of the archive is the
+  computer's teams, a trainer every 0x98 bytes with six records of the rentals' form
+  from `+8` (`func_80071B58`, `func_80071BB8`). The only level 100 ones of the three
+  are the Rival's, in tables 33 (Round 1) and 60 (Round 2).
+
+### The mod's table
+
+`mod/src/rentals.c`. The entry screen takes its table as it starts (`func_8130251C`:
+`func_80071914(rules)` for the number, then `func_80071B20(archive, number)`, kept at
+`D_81331978`), and that second call is pointed at `Mod_RentalTable`
+(`mod/asm_patches.txt`).
+
+- In a Free Battle, for table 1, it fills a table of the mod's own and gives that:
+  table 1's records as they are, and the mod's five (`mod/data/rental_extra.inc.c`),
+  each where its number falls.
+- **Mew and Celebi are copies of table 2's**, which the tests hold against the ROM.
+  Asking the archive for a table loads it: `func_80071B20(archive, 2)` took 0x1760
+  bytes of the main pool, the table and its block's header, for two records of 24
+  (found on the 4 MB build, whose test counts the pool's free bytes).
+- **Only who the rule set lets enter.** The game's tables have nobody who may not
+  enter under the rules that use them, so neither has the mod's: under OU Rules it
+  comes to table 1 again, record for record.
+- **Not by changing a rule set's table number**: kind 12's record is the Stadium's
+  Prime Cup too, and table 2 would change two Pokémon everyone knows.
+- **Mewtwo, Lugia and Ho-Oh** are as the game has Mew and Celebi, with the moves of the
+  Rival's own in Round 2. His Mewtwo of Round 1 has Hidden Power, which no DVs make
+  the weakest there is.
+- **The picker needs nothing changed.** A list of rentals has room for 0xFE
+  (`func_81307D08` gives each source five arrays, 0x1E apart for a Game Pak's box and
+  0xFE for the rentals), the sort's keys are 0x100 bytes on the stack
+  (`func_8130A778`), and counts and places are bytes. `func_81307600` fills the
+  arrays from the table, and the three orders are by number, by
+  `func_800637C0(species)` (the byte before a species' base stats) and by
+  `func_80073450(species)` (`D_8009F97F`: the alphabet's, which is the order the
+  list opens in). Every species has its keys, the five included.
+- The table is 6 KB of the mod's memory, and the mod is in memory for as long as the
+  entry screen is. Nothing reads the table after that.
+
 ## Pokémon helpers (main segment)
 
 | Address | Role |
 |---|---|
 | `func_80071E48(mon, rental)` | expand a 24-byte rental entry into a 0x58-byte record (asm, `src/728D0.c`) |
 | `func_80071BB8(mons, roster)` | expand up to six roster entries (CPU teams) |
+| `func_80071B20(archive, table)` | a table of rental Pokémon by its number, 0 to 4, or NULL |
+| `func_80071CD0(mask, bit)` | whether a mask of species has a bit set; species 1 is bit 0 |
 | `func_800619E8(mon)` | level from experience, then all six stats |
 | `func_8006183C(stat, species, statExp, level, dvs)` | one stat; 0 HP, 1 Atk, 2 Def, 3 Spd, 4 SpA, 5 SpD |
 | `func_80061B88(species, level)` | experience needed for a level |
@@ -1264,7 +1371,8 @@ build tools or to the commit of the decompilation the mod sits on.
 1. **Tool tests** (`mod/tests/test_*.py`): the ROM checker, relocation tool, injector,
    patch tool, the generated move, keyboard, trainer title and trainer face tables, what
    the mod assumes about the ROM's trainer pictures, and the directory it gives them,
-   read the way the game reads one; the clauses' moves against Pokémon Showdown's data
+   read the way the game reads one; what it assumes about the stage list and the rental
+   tables, and its five rental Pokémon against the game's own and the Rival's team; the clauses' moves against Pokémon Showdown's data
    and the game's names for them, and the mod's rule set against the game's records.
    One asks the decompilation's sources whether every hooked function is still
    assembly there, which an old extract can hide.
@@ -1290,6 +1398,9 @@ build tools or to the commit of the decompilation the mod sits on.
    - `test_clauses.py`: the mod's rule set on Free Battle's list and in the viewer; a
      rental and a registered team refused for a move, and the editor's list of moves;
      Anything Goes as it was; RULE EDIT's rows, and a rule set saved with clauses.
+   - `test_unlocks.py`: on the empty save, Free Battle's 30 stages and the 251 rentals;
+     the five opened, one edited and entered, one registered; what OU Rules and the
+     Poké Cup list.
    - `test_without_expansion_pak.py`: the 4 MB test ROM.
    - Stats are compared with the Generation 2 formula worked out in Python from the base
      stats in the ROM; the move list with `mod/data/legal_moves.inc.c`; a saved name
@@ -1445,7 +1556,9 @@ load, read, find, write, eval, reboot). BizHawk lives in `.emu/BizHawk`; output 
   `mod/tests/emu/harness.py` has these as `BOOT`, `FREE_BATTLE` and `SCENES`.
 - `tools/mod/emu.py script mod/lua/goto_rental.txt` replays that path from `whitecity`.
 - The picker lists the rentals by name, four to a row, not in the rental table's
-  order: Diglett is the first of the tenth row.
+  order: Diglett is the first of the tenth row, or the second under Anything Goes,
+  where Celebi comes before it. `harness.to_rental(species, listed)` gives the presses
+  to any of them.
 - Free Battle's rule sets: the fourth A of that path opens them with the cursor on
   Anything Goes; Down five times and A opens the list of the player's own. R is "Check
   Rules".
@@ -1513,7 +1626,7 @@ Judgment calls, easy to revisit:
 - Not enforced: move combinations that cannot coexist, and level requirements
   (the stock rentals ignore those too).
 
-Tests: `python3 -m unittest discover -s mod/tests` (143 tests, of every tool).
+Tests: `python3 -m unittest discover -s mod/tests` (157 tests, of every tool).
 
 ## Open questions (milestone M1)
 

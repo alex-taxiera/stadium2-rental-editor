@@ -140,6 +140,29 @@ included.
 A registered team keeps its edits. A trainer's picture, name and title are not saved:
 they last until the console is switched off.
 
+## Every stage and every Pokémon
+
+Free Battle has everything from the first time the game is switched on, whatever the
+save file has seen.
+
+- **All 30 stages.** The original lists a stage only once you have met a battle there,
+  which on a new save leaves Free Battle, the four cups' stadiums and Random Select.
+  The gyms, the Elite Four, Silver Cave and the rest are now on the list from the start.
+  The save file is not changed: it goes on noting the stages you meet, for the original
+  game.
+- **Mewtwo, Mew, Lugia, Ho-Oh and Celebi for rent**, under Anything Goes and Prime Cup
+  rules, which had every Pokémon but these five. They are in the rental list where the
+  alphabet puts them, at level 100, and can be edited like any rental.
+  - Mew and Celebi are the game's own rentals, which the original only offers in
+    Round 2's Prime Cup.
+  - The game has no rental of the other three. Theirs start as the game's Mew and
+    Celebi do, with no DVs and no Stat Exp, and with the moves the Rival's own have in
+    Round 2: Mewtwo with Psychic, Submission, Thunderbolt and Recover; Lugia with
+    Aeroblast, Earthquake, Psychic and Safeguard; Ho-Oh with Sacred Fire, Thunder,
+    Earthquake and Giga Drain.
+  - OU Rules keeps all five out, and its list is the 246 it always was. So is the Poké
+    Cup's.
+
 ## Rule sets and move clauses
 
 The game's rules say which Pokémon may enter, at what levels and with what items. The
@@ -209,9 +232,12 @@ rentals, and three of six fight.
   empty. The original shows such a rule set without them, and saving the rules there
   loses them.
 - The clauses under a rule set of your own have not been tried on a Game Pak's Pokémon,
-  which is all such a rule set takes: there is no Game Pak in the tests. Nor, for the
-  same reason, has a registered team with Mewtwo or the like on it been tried under
-  OU Rules, no rental being one of the five.
+  which is all such a rule set takes: there is no Game Pak in the tests.
+- The five Pokémon are for rent in Free Battle only, under Anything Goes and Prime Cup
+  rules. The Stadium's cups and the Gym Leader Castle rent what they always did.
+- The stages are unlocked for Free Battle's list. Nothing else the game keeps for
+  later is changed: Round 2, the Gym Leader Castle's second half and the like are
+  earned as before.
 - The original trainer's name and ID stay as the rental has them.
 - Change Trainer has only been tried in Free Battle. A typed name shows there; the other
   modes name the player in code this does not change.
@@ -226,7 +252,7 @@ rentals, and three of six fight.
 ## What has been tested
 
 Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts. Most of
-it is now an automated suite (`mod/tests/emu`, 59 scenarios) that plays the editor and
+it is now an automated suite (`mod/tests/emu`, 68 scenarios) that plays the editor and
 checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 
 - Moves, level, happiness, DVs and Stat Exp edited and carried into a battle.
@@ -254,6 +280,13 @@ checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
   beside the other, and a Pokémon with both refused; a registered team with Fissure on
   it refused under OU Rules and chosen under Anything Goes; a battle begun under it;
   and Anything Goes refusing nothing.
+- On a save file with nothing in it: all 30 stages on Free Battle's list; all 251
+  Pokémon on the rental list under Anything Goes, the game's own records as they were;
+  each of the five opened from its place in the list; Mewtwo edited, entered and its
+  stats as the formula gives them; Lugia in a battle with its four moves. The list
+  under OU Rules and under Poké Cup rules is the game's own table, record for record.
+  A team registered with Mewtwo on it is refused under OU Rules and chosen under
+  Anything Goes.
 - RULE EDIT: the three questions answered both ways, a rule set kept with two clauses,
   and the same rule set on Free Battle's list with them after a power cycle.
 - Under Poké Cup rules the level stops at 50 and 55.
@@ -262,7 +295,7 @@ checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
   entry screen keeps 120 KB of its memory pool free with the mod loaded, and the editor
   and keyboard allocate nothing; a chosen face is then shown where the two sides are set
   against each other and on the order screen. OU Rules, "Check Rules" and RULE EDIT on
-  that build too. (A battle on that build was run before
+  that build too, and the list of 251 with Lugia opened from it. (A battle on that build was run before
   the keyboard was added; the mod is unloaded by then.)
 - The original ROM still builds byte for byte from the same tree, and the patch applied
   to it reproduces the modified ROM.
