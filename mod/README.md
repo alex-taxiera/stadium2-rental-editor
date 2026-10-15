@@ -160,8 +160,8 @@ save file has seen.
     Round 2: Mewtwo with Psychic, Submission, Thunderbolt and Recover; Lugia with
     Aeroblast, Earthquake, Psychic and Safeguard; Ho-Oh with Sacred Fire, Thunder,
     Earthquake and Giga Drain.
-  - OU Rules keeps all five out, and its list is the 246 it always was. So is the Poké
-    Cup's.
+  - OU Rules keeps all five out, and lists the 246 species it always did, with
+    Smogon's sets (see below). The Poké Cup's list is the 246 it always was.
 
 ## Rule sets and move clauses
 
@@ -180,6 +180,20 @@ up to 100, held items, rentals, registered teams and one to four players, except
 Mewtwo, Mew, Lugia, Ho-Oh and Celebi may not enter, as in the Poké Cup, and the three
 clauses hold. R on it, "Check Rules", lists what it says like any rule set; the last
 line, **Moves that cannot be known**, has the clauses behind it.
+
+**Its rentals are Smogon's sets.** Every species Smogon has a GSC OU set for, 94 of
+them, is rented under OU Rules with that set in place of the game's rental: its moves,
+its held item, DVs of 15 (or the ones its Hidden Power's type needs), the most Stat Exp,
+and happiness 255 for Return. Where a set offers a choice of moves, the first one OU
+Rules allows is used.
+
+- The item is on the Pokémon when you choose **Yes**, and **ITEM** opens on it, to
+  change it or take it off.
+- A few sets have a move that is only known from an event, Lovely Kiss on Nidoking for
+  one. The Pokémon keeps it, but EDIT does not offer it, so once it is replaced it is
+  gone.
+- Ariados keeps the game's rental: its one set has Spider Web with Baton Pass.
+- The other species, and Anything Goes, rent the game's own.
 
 ![Diglett under OU Rules: Yes and FISSURE greyed out, the hand on EDIT](images/clause.png)
 
@@ -222,6 +236,8 @@ rentals, and three of six fight.
 - OU Rules is on the list of your own rule sets, which has eight places: with eight
   rule sets of your own it is not offered. The six rule sets Free Battle starts with
   fill their panel, so there is nowhere else for it.
+- Rentals have no PP Ups, Smogon's sets included: the game does not read them from a
+  rental's record.
 - OU Rules has the three move clauses and no others. Like Anything Goes it lets a
   species be on a team twice, and an item; the sleep and freeze clause and the rule on
   the last Pokémon are the game's own, in every battle.
@@ -279,12 +295,16 @@ checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
   move is edited away; Baton Pass and Spider Web each left out of the list of moves
   beside the other, and a Pokémon with both refused; a registered team with Fissure on
   it refused under OU Rules and chosen under Anything Goes; a battle begun under it;
-  and Anything Goes refusing nothing.
+  and Anything Goes refusing nothing. Its list of rentals with Smogon's sets in place of
+  the game's, record for record; Snorlax opened with its set, its stats as the formula
+  gives them, entered holding Leftovers and in a battle with them; ITEM opening on
+  Leftovers and offering every set's item; "No item" taking it off.
 - On a save file with nothing in it: all 30 stages on Free Battle's list; all 251
   Pokémon on the rental list under Anything Goes, the game's own records as they were;
   each of the five opened from its place in the list; Mewtwo edited, entered and its
   stats as the formula gives them; Lugia in a battle with its four moves. The list
-  under OU Rules and under Poké Cup rules is the game's own table, record for record.
+  under Poké Cup rules is the game's own table, record for record, and under OU Rules
+  its 246 species.
   A team registered with Mewtwo on it is refused under OU Rules and chosen under
   Anything Goes.
 - RULE EDIT: the three questions answered both ways, a rule set kept with two clauses,
@@ -367,4 +387,6 @@ the ROM, that gives each face a number of its own; no picture is moved or change
 
 This is built on [michiiik/pokestadiumgs](https://github.com/michiiik/pokestadiumgs), a
 fork of [pret/pokestadiumgs](https://github.com/pret/pokestadiumgs). Move legality comes
-from Pokémon Showdown's Gen 2 learnsets and the pret Gold and Crystal disassemblies.
+from Pokémon Showdown's Gen 2 learnsets and the pret Gold and Crystal disassemblies. The
+sets OU Rules rents are [Smogon](https://www.smogon.com/dex/gs/formats/ou/)'s, from
+[pkmn/smogon](https://github.com/pkmn/smogon)'s data.

@@ -1,6 +1,7 @@
 #include "clauses.h"
 
 #include "rental_extra.inc.c"
+#include "rental_ou.inc.c"
 
 /*
  * Every Pokemon for rent in a Free Battle.
@@ -14,7 +15,11 @@
  * place of that one: its 246 as they are, and the five where their numbers fall. (Not
  * Round 2's table: its Pikachu and Psyduck know other moves.) A Pokemon the rule set
  * in force keeps out is left out of it, as the game's own tables have nobody who may
- * not enter: under the mod's OU Rules the table is the game's 246 again.
+ * not enter: under the mod's OU Rules the table has the game's 246 species again.
+ *
+ * Under OU Rules a species Smogon has a GSC OU set for is rented with that set, in
+ * place of the game's record: its moves, item, DVs and Stat Exp. The others keep the
+ * game's. The sets are written by tools/mod/gen_ou_rentals.py.
  *
  * The picker has room for 0xFE rentals and sorts them itself, by the keys it has for
  * every species, so nothing but the table has to know of the five.
@@ -40,6 +45,9 @@ RentalTable *Mod_RentalTable(void *archive, s32 number) {
     Rules *rules = Rules_InForce();
     Rental *extra = sExtraRentals;
     s32 extras = 0;
+    s32 presets = *gChosenRules == CHOSEN_OU ? NUM_OU_RENTALS : 0;
+    s32 preset = 0;
+    Rental *rental;
     s32 count = 0;
     s32 i;
 
@@ -54,7 +62,14 @@ RentalTable *Mod_RentalTable(void *archive, s32 number) {
             count = Rentals_Add(table, count, rules, &extra[extras]);
             extras++;
         }
-        count = Rentals_Add(table, count, rules, &stock->rentals[i]);
+        rental = &stock->rentals[i];
+        while (preset < presets && sOuRentals[preset].species < rental->species) {
+            preset++;
+        }
+        if (preset < presets && sOuRentals[preset].species == rental->species) {
+            rental = &sOuRentals[preset];
+        }
+        count = Rentals_Add(table, count, rules, rental);
     }
     while (extras < NUM_EXTRA_RENTALS) {
         count = Rentals_Add(table, count, rules, &extra[extras]);

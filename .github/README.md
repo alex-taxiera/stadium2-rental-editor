@@ -60,8 +60,9 @@ POKéMON TRAINER, until the console is switched off.
 **Move clauses** are rules about the moves a Pokémon may know: no Double Team or
 Minimize; no Fissure, Guillotine or Horn Drill; no Baton Pass together with Mean Look or
 Spider Web. **OU Rules**, on the list Free Battle's "Edit Rules" opens, is Anything Goes
-with all three and without Mewtwo, Mew, Lugia, Ho-Oh and Celebi. RULE EDIT, under
-OPTIONS, can give a rule set of your own any of the three.
+with all three and without Mewtwo, Mew, Lugia, Ho-Oh and Celebi, and its rentals are
+Smogon's GSC OU sets, held items included. RULE EDIT, under OPTIONS, can give a rule set
+of your own any of the three.
 
 **Nothing to unlock** for a Free Battle: all 30 stages are on its list on a new save
 file, where the original shows six until the others have been met in the Stadium, and
@@ -89,4 +90,5 @@ decompilation of Pokémon Stadium 2. The mod is built on it without changing its
 - The decompilation's own README is [README.md](../README.md).
 
 Move legality comes from Pokémon Showdown's Gen 2 learnsets and the pret Gold and Crystal
-disassemblies.
+disassemblies. The sets OU Rules rents are [Smogon](https://www.smogon.com/dex/gs/formats/ou/)'s,
+from [pkmn/smogon](https://github.com/pkmn/smogon)'s data.

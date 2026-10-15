@@ -175,12 +175,22 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
     and its stats by the formula; Mewtwo in the editor, with its own list of moves,
     and entered; Lugia in a battle with its four moves and its model; a team
     registered with Mewtwo on it refused under OU Rules and chosen under Anything
-    Goes; the list under OU Rules and under Poké Cup rules the game's own table,
-    record for record; the 4 MB build with the 251 and Lugia opened, the pool's free
-    count not moving.
+    Goes; the list under Poké Cup rules the game's own table, record for record, and
+    under OU Rules its 246 species; the 4 MB build with the 251 and Lugia opened, the
+    pool's free count not moving.
   - Not tried: the Prime Cup's rules in Free Battle (the same table and the same code
     as Anything Goes, by another rule set); a second player; a battle on any of the
     24 stages.
+- **Smogon's sets under OU Rules.** Every species Smogon has a GSC OU set for (94; not
+  Ariados, whose one set has Spider Web with Baton Pass) is rented under OU Rules with
+  that set: moves, held item, DVs and Stat Exp. See "OU Rules' rentals".
+  - Checked: the picker's table, the game's 246 species with the sets in place of their
+    records; Snorlax opened with its set and its stats by the formula, entered holding
+    Leftovers and in a battle with them; ITEM opening on Leftovers and listing every
+    set's item; "No item" taking it off; the 4 MB build's picker under OU Rules, its
+    pool's free count what the mod's size leaves (the sets are 2,256 bytes of the mod,
+    and the table is the mod's own either way).
+  - Not tried: a set's item on the 4 MB build; a second player.
 - An earlier build has been run on a real Nintendo 64 (reported 2026-10-12; which build,
   the cart and whether an Expansion Pak was fitted are not recorded here). So has the
   build released as v0.4.0, which has the editor on one of the team and is the first
@@ -350,10 +360,10 @@ Rental record, 24 bytes, big-endian:
 |---|---|
 | 0x00 | level |
 | 0x01 | species |
-| 0x02 | item (always 0 for rentals) |
+| 0x02 | item: 0 in every table of the game's; the picker gives it to the Pokémon as its held item |
 | 0x03 | unknown |
 | 0x04 | moves[4] |
-| 0x08 | unknown |
+| 0x08 | PP Ups, two bits a move; the picker shifts each pair out of the byte, so a rental has none |
 | 0x09 | happiness |
 | 0x0A | stat exp x5 (u16) |
 | 0x14 | DVs (u16) |
@@ -909,6 +919,35 @@ the entry screen, so that is where the record is put back:
 
 It allows a species and an item twice, as Anything Goes does.
 
+### OU Rules' rentals
+
+Under OU Rules a species Smogon has a GSC OU set for is rented with that set in place
+of the game's record. `Mod_RentalTable` (`mod/src/rentals.c`), which already makes a
+Free Battle's table of its own, takes `sOuRentals` (`mod/data/rental_ou.inc.c`) when
+`gChosenRules` is set: walking the game's table, a species with a set gets the set's
+record. The table has the same 246 species, so the picker's room and sort are as before.
+
+- **The item is the game's to give.** The picker's expander (`func_80071E48`) copies a
+  record's `+0x02` to the Pokémon's held item, and Anything Goes's flag bit 26 lets the
+  picker keep it. The panel's chosen item (`panel->0x39`) starts as the Pokémon's, so
+  Yes enters it holding the item, ITEM opens on it and "No item" takes it off. No hook.
+- **No PP Ups.** The expander reads `+0x08` for them, but the mask it shifts runs off
+  the byte for every move: a rental has none, so the sets have none.
+- **Event moves are kept**, Lovely Kiss on Nidoking for one: the record holds them, as
+  Prime Cup Psyduck's Amnesia is held, though EDIT does not offer them.
+
+`tools/mod/gen_ou_rentals.py` writes the file from pkmn/smogon's `gen2ou.json` (MIT),
+pret/pokecrystal's item numbers, the Showdown data `gen_legal_moves.py` caches, and the
+base ROM (the game's move names for the comments, and which items its ITEM list offers).
+For each species it takes the first set it can make, and in each slot the first option
+the species can know in Generation 2 (events included), not already in the set, and not
+kept out by a clause; a set it cannot make gives way to the next, and a species with
+none keeps the game's record. DVs are 15 except where Hidden Power's type or the set
+says otherwise (Marowak's 13 and 13 for Bug); Stat Exp is the most unless the set gives
+EVs (Raikou's Speed, 216, as the least Stat Exp that gives the same stat); happiness is
+255 with Return, 0 with Frustration, otherwise 127. `mod/tests/test_ou_rentals.py` holds
+the file to the generator and each record to the rules.
+
 ### Free Battle's rule select (fragment 6, vram 0x83100000)
 
 One screen for the players, the rule set and the stage. Its state is `D_831039B0`,
@@ -1374,7 +1413,8 @@ build tools or to the commit of the decompilation the mod sits on.
    patch tool, the generated move, keyboard, trainer title and trainer face tables, what
    the mod assumes about the ROM's trainer pictures, and the directory it gives them,
    read the way the game reads one; what it assumes about the stage list and the rental
-   tables, and its five rental Pokémon against the game's own and the Rival's team; the clauses' moves against Pokémon Showdown's data
+   tables, and its five rental Pokémon against the game's own and the Rival's team; OU
+   Rules' sets against their generator and the rules; the clauses' moves against Pokémon Showdown's data
    and the game's names for them, and the mod's rule set against the game's records.
    One asks the decompilation's sources whether every hooked function is still
    assembly there, which an old extract can hide.
@@ -1402,7 +1442,7 @@ build tools or to the commit of the decompilation the mod sits on.
      Anything Goes as it was; RULE EDIT's rows, and a rule set saved with clauses.
    - `test_unlocks.py`: on the empty save, Free Battle's 30 stages and the 251 rentals;
      the five opened, one edited and entered, one registered; what OU Rules and the
-     Poké Cup list.
+     Poké Cup list; one of Smogon's sets entered with its item and into a battle.
    - `test_without_expansion_pak.py`: the 4 MB test ROM.
    - Stats are compared with the Generation 2 formula worked out in Python from the base
      stats in the ROM; the move list with `mod/data/legal_moves.inc.c`; a saved name
@@ -1628,7 +1668,7 @@ Judgment calls, easy to revisit:
 - Not enforced: move combinations that cannot coexist, and level requirements
   (the stock rentals ignore those too).
 
-Tests: `python3 -m unittest discover -s mod/tests` (157 tests, of every tool).
+Tests: `python3 -m unittest discover -s mod/tests` (166 tests, of every tool).
 
 ## Open questions (milestone M1)
 

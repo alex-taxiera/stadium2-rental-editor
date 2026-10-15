@@ -125,6 +125,18 @@ def rental_table(number: int) -> list:
         return [f.read(RENTAL_SIZE) for _ in range(count)]
 
 
+def ou_rentals() -> dict:
+    """Species -> the record OU Rules rents it as, from mod/data/rental_ou.inc.c."""
+    text = (REPO_ROOT / "mod" / "data" / "rental_ou.inc.c").read_text(encoding="ascii")
+    records = {}
+    for fields in re.findall(r"^    \{ (.*?) \},$", text, re.M):
+        level, species, item, unk, m1, m2, m3, m4, pp_ups, happiness, *rest = [
+            int(number, 0) for number in re.findall(r"0x[0-9A-Fa-f]+|\d+", fields)]
+        records[species] = struct.pack(">10B5HH2B", level, species, item, unk, m1, m2, m3, m4, pp_ups, happiness,
+                                       *rest)
+    return records
+
+
 def picker_place(species: int, listed: list) -> tuple:
     """(row, column) of a species in the picker, which lists `listed` by name."""
     order = sorted(listed, key=lambda one: rom_bytes(NAME_RANK + one, 1)[0])

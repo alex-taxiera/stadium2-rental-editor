@@ -8,7 +8,8 @@ import struct
 import unittest
 
 import harness as h
-from harness import DOWN, Menu, Panel, Record, press, presses
+from harness import DOWN, UP, ItemList, Menu, Panel, Record, press, presses
+from test_teams import TO_BATTLE
 
 NUM_STAGES = 30
 MEWTWO, MEW, LUGIA, HO_OH, CELEBI = 150, 151, 249, 250, 251
@@ -21,6 +22,8 @@ LEVEL_100, ROUND_2, LEVEL_50 = 1, 2, 3
 OWN = {MEWTWO: [94, 66, 85, 105], LUGIA: [177, 89, 94, 219], HO_OH: [221, 87, 89, 202]}
 THUNDERBOLT = 85
 RENTAL = 0x04   # in a record's flags
+SNORLAX, LEFTOVERS = 143, 0x92
+PANEL_ITEM_LIST = 4   # the panel's state while the ITEM list is open
 
 
 def species(records: list) -> list:
@@ -90,13 +93,50 @@ class RentalsTest(h.EmulatorTest):
 
 @unittest.skipUnless(h.AVAILABLE, h.SKIP_REASON)
 class OuRentalsTest(h.EmulatorTest):
-    """The mod's own rule set keeps the five out, and lists nobody who may not enter."""
+    """The mod's own rule set keeps the five out, lists nobody who may not enter, and rents
+    Smogon's set of a species where there is one (mod/data/rental_ou.inc.c)."""
 
     scene = "ou"
 
-    def test_the_list_is_the_games_own(self):
+    def test_the_list_is_the_games_species_with_smogons_sets(self):
         self.start()
-        self.assertEqual(self.s.rentals(), h.rental_table(LEVEL_100))
+        presets = h.ou_rentals()
+        stock = h.rental_table(LEVEL_100)
+        self.assertEqual(self.s.rentals(), [presets.get(record[1], record) for record in stock])
+        self.assertEqual(len(set(presets) & set(species(stock))), len(presets))
+
+    def test_a_set_is_entered_with_its_item_and_fights_with_it(self):
+        listed = species(h.rental_table(LEVEL_100))
+        preset = h.ou_rentals()[SNORLAX]
+        self.start(*h.to_rental(SNORLAX, listed), *h.OPEN_PANEL)
+        panel = self.s.picker_panel()
+        self.assertEqual((panel.state, panel.mode, panel.item), (Panel.MENU, Panel.ENTER, LEFTOVERS))
+        record = Record(self.s.read(panel.pokemon, h.RECORD_SIZE))
+        self.assertEqual((record.species, record.level, record.item, record.moves, record.happiness),
+                         (SNORLAX, 100, LEFTOVERS, list(preset[4:8]), preset[9]))
+        self.assertEqual((record.dvs, record.stat_exp), (0xFFFF, [0xFFFF] * 5))
+        self.assertStatsFollow(record)
+
+        # Yes: it is entered holding it, and a battle has it as it was entered.
+        self.do(*press("A", 90))
+        entered = self.s.party()
+        self.assertEqual((entered.species, entered.item), (SNORLAX, LEFTOVERS))
+        self.do(*TO_BATTLE)
+        fighting = Record(self.s.read(h.BATTLE_RECORD, h.RECORD_SIZE))
+        self.assertEqual(fighting.editable, entered.editable)
+
+    def test_item_opens_on_the_sets_item_and_offers_every_sets_item(self):
+        listed = species(h.rental_table(LEVEL_100))
+        self.start(*h.to_rental(SNORLAX, listed), *h.OPEN_PANEL, *presses(DOWN, 2), *press("A", 40))
+        panel = self.s.picker_panel()
+        self.assertEqual(panel.state, PANEL_ITEM_LIST)
+        items = ItemList(self.s.read(panel.item_list, ItemList.SIZE))
+        self.assertEqual(items.items[(items.top + items.row) * 2 + items.column - 1], LEFTOVERS)
+        self.assertLessEqual({record[2] for record in h.ou_rentals().values()} - {0}, set(items.items))
+
+        # "No item" takes it off: up to the top row, and A.
+        self.do(*presses(UP, 12, 12), *press("A", 80))
+        self.assertEqual((self.s.party().species, self.s.party().item), (SNORLAX, 0))
 
 
 @unittest.skipUnless(h.AVAILABLE, h.SKIP_REASON)

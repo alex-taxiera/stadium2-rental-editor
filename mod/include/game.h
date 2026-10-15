@@ -168,10 +168,10 @@ s32 func_80071CD0(u8 *mask, s32 bit);
 typedef struct Rental {
     /* 0x00 */ u8 level;
     /* 0x01 */ u8 species;
-    /* 0x02 */ u8 item; /* none, in every table */
+    /* 0x02 */ u8 item; /* none in the game's tables; the Pokemon holds it */
     /* 0x03 */ u8 unk03;
     /* 0x04 */ u8 moves[MAX_MOVES];
-    /* 0x08 */ u8 ppUps; /* two bits a move */
+    /* 0x08 */ u8 ppUps; /* two bits a move, which func_80071E48 loses: a rental has none */
     /* 0x09 */ u8 happiness;
     /* 0x0A */ u16 statExp[5];
     /* 0x14 */ u16 dvs;
