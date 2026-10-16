@@ -51,6 +51,20 @@ glabel Mod_PanelMoveColorShim
     j           Mod_PanelMoveColor
      or         $a2, $s3, $zero
 
+# The same function looks up each move's type twice, for its icon and for its name's
+# colour, in two loops that keep their registers as above.
+glabel Mod_PanelMoveTypeShim
+    or          $a1, $s1, $zero
+    j           Mod_PanelMoveType
+     or         $a2, $s3, $zero
+
+# And where it opens the box on the move under the C buttons (func_81606304), which is
+# given the move's number in the first word of the arguments on the stack. The record is
+# in $t4; it goes to the second, which func_8130DEB8 leaves unused.
+glabel Mod_PanelMoveInfoShim
+    j           Mod_PanelMoveInfo
+     sw         $t4, 0x14($sp)
+
 .section .bss
 
 # sizeof(EditState), rounded up; see mod/include/edit.h

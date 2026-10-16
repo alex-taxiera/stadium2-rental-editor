@@ -48,6 +48,8 @@ VERSUS_LABEL = (56, 178, 186, 234)
 MODEL = (80, 296, 138, 354)
 # The detail panel's four moves, each beside the C button that checks it.
 PANEL_MOVES = (78, 366, 372, 440)
+# The inside of the box the C buttons open on one of them: its type, power and description.
+MOVE_BOX = (300, 264, 584, 380)
 # The rule viewer's box for what is behind a line, when the line has four rows of it.
 VIEWER = (70, 190, 570, 330)
 # RULE EDIT's page for one rule set, without the hand that points at a row.

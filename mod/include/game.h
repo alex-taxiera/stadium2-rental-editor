@@ -120,6 +120,13 @@ char *func_80063270(u8 type); /* type name */
 #define Move_BasePP func_80062E10
 #define Type_Name func_80063270
 
+/* The move table those read, six bytes a move: its power and its type. */
+extern u8 D_8009782B[];
+extern u8 D_8009782C[];
+#define gMovePowers D_8009782B
+#define gMoveTypes D_8009782C
+#define MOVE_ENTRY_SIZE 6
+
 /* --- Rules ---
  *
  * A rule set is one record. The game has fourteen of its own, found by their kind
@@ -642,6 +649,11 @@ s32 func_80049064(s32 x, s32 y, s32 from, char *str);
 /* The colour the detail panel gives a move's name, by the move's type. */
 void func_81602DA4(s32 type);
 #define Text_SetTypeColor func_81602DA4
+
+/* The box the detail panel opens on a move with the C buttons: its name, type, power,
+ * accuracy and description, inside x, y, width, height. It knows only the move. */
+void func_81606304(s32 x, s32 y, s32 width, s32 height, s32 move);
+#define Panel_DrawMoveInfo func_81606304
 
 /* --- Sound --- */
 

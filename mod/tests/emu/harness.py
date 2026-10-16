@@ -61,6 +61,7 @@ MAIN_ROM, MAIN_VRAM = 0x1000, 0x80000400   # where the main segment sits in the 
 
 BASE_STATS = 0x8009830B        # per species, 22 bytes: HP, Attack, Defense, Speed, Sp. Atk, Sp. Def at +0
 MOVE_PP = 0x8009782E           # per move, 6 bytes: base PP at +0
+MOVE_POWER = 0x8009782B        # the same table: power at +0, type at +1
 
 PICKER_MENU = 0x74             # in the picker's state: the popup menu
 PICKER_SIDE = 0x1A142          # and whose team is being chosen
@@ -97,7 +98,7 @@ CLAUSES = 0x7                  # CLAUSE_MASK: the mod's bits of a rule set's fla
 RECORD_SIZE = 0x58
 CELL_ICON, ICON_SIZE = 0x60, 0xC88   # a list cell is a record followed by, among other things, its icon
 
-ABRA, PSYCHIC, ICE_PUNCH, HIDDEN_POWER = 63, 94, 8, 237
+ABRA, PSYCHIC, ICE_PUNCH, HIDDEN_POWER, RETURN = 63, 94, 8, 237, 216
 
 
 def fragment_id(vram: int) -> int:

@@ -60,6 +60,35 @@ void Mod_PanelMoveColor(s32 type, u8 *at, s32 offset) {
 }
 
 /**
+ * Called from func_8130DEB8 in place of func_80062D98, which gives a move's type for
+ * its icon and its name's colour (through Mod_PanelMoveTypeShim in state.s). Hidden
+ * Power has the type this Pokemon's DVs give it, as the editor shows, not Normal.
+ * `at` and `offset` are as for Mod_PanelMoveColor.
+ */
+s32 Mod_PanelMoveType(s32 move, u8 *at, s32 offset) {
+    return Edit_MoveType((Pokemon *)(at - offset / 4), move);
+}
+
+/**
+ * Called from func_8130DEB8 in place of func_81606304, the box it opens on a move with
+ * the C buttons (through Mod_PanelMoveInfoShim in state.s). That box looks the move up
+ * in the game's table, where Hidden Power is Normal and Hidden Power, Return and
+ * Frustration have no power to show. For as long as it is drawn, the move's entry holds
+ * the type and power this Pokemon would use it with.
+ */
+void Mod_PanelMoveInfo(s32 x, s32 y, s32 width, s32 height, s32 move, Pokemon *mon) {
+    s32 entry = move * MOVE_ENTRY_SIZE;
+    u8 power = gMovePowers[entry];
+    u8 type = gMoveTypes[entry];
+
+    gMovePowers[entry] = Edit_MovePower(mon, move);
+    gMoveTypes[entry] = Edit_MoveType(mon, move);
+    Panel_DrawMoveInfo(x, y, width, height, move);
+    gMovePowers[entry] = power;
+    gMoveTypes[entry] = type;
+}
+
+/**
  * Replaces func_8130DA04, which draws the ENTER menu (Yes / No / ITEM) beside the
  * detail panel. Adds an EDIT entry below the stock ones for rental Pokemon, and
  * draws the editor while it is open.

@@ -1,4 +1,6 @@
 {
+  "box_hidden_power": "0cf58dffb327ec32a0454680b4a94cfd5dd74a22",
+  "box_return": "60a485720c3bed80fd9f6c0c150871f321c46c67",
   "clause_fixed": "c0262c24b9dd33803a75a6432075c0bdcf264cbd",
   "clause_fixed_moves": "3536381182ac4d11d3d7b04a624a57527089773c",
   "clause_none": "845a0e1df9514c351606b6a95d26bc2cfd7cc082",
@@ -21,6 +23,7 @@
   "keyboard_upper": "c97b92436ebf474ebd3f866613119f88d0a5f364",
   "list_end": "8f4bb8a34a800647a2913c36adc01cb8a2c12936",
   "list_hidden_power": "928e5486bc7691f8dffd764bccd839a5824635d3",
+  "panel_hidden_power": "2bca4583a50094f34d24c7219ed818b48b80d581",
   "result_named": "2de40d898c71decbd35fcc045d8850606f09d1a5",
   "rule_page": "df1eb8dabb68a901c2a4531ec41a3331789b267f",
   "rule_page_clauses": "2aeec8699dca04177b8d43ba62c304798237d803",

@@ -284,6 +284,36 @@ class EditorTest(h.EmulatorTest):
         self.do(*press("A", 20))
         screens.check(self, "list_hidden_power", self.s.shot("list_hidden_power"))
 
+    def test_the_stock_panel_shows_hidden_power_and_return_as_this_pokemon_has_them(self):
+        # Hidden Power over Psychic and Return over Ice Punch, then out of the editor.
+        self.start(*h.OPEN_EDITOR, *press("A", 20))
+        entries = [0] + h.legal_moves(h.ABRA)
+        self.do(*to_list_entry(entries.index(h.HIDDEN_POWER), self.s.edit_state().cursor), *press("A", 20),
+                *press(DOWN), *press("A", 20))
+        self.do(*to_list_entry(entries.index(h.RETURN), self.s.edit_state().cursor), *press("A", 20))
+        record = self.s.record()
+        self.assertEqual(record.moves[:2], [h.HIDDEN_POWER, h.RETURN])
+        self.assertEqual((record.dvs, record.happiness), (0x9AA9, 128))   # Ghost 69; Return 51
+        table = self.s.read(h.MOVE_POWER + h.HIDDEN_POWER * 6, 2), self.s.read(h.MOVE_POWER + h.RETURN * 6, 2)
+
+        # Hidden Power's icon and name in Ghost's colours.
+        self.do(*press("B", 30))
+        screens.check(self, "panel_hidden_power", self.s.shot("panel_hidden_power"), screens.PANEL_MOVES)
+
+        # C Up and C Right open the box on each, with its type and power.
+        self.do(*press("C Up", 40))
+        screens.check(self, "box_hidden_power", self.s.shot("box_hidden_power"), screens.MOVE_BOX)
+        self.do(*press("C Right", 40))
+        screens.check(self, "box_return", self.s.shot("box_return"), screens.MOVE_BOX)
+
+        # With the box closed, the game's table of moves is as it was. (While the box is
+        # up, a frame can end while it is being drawn, with its move's entry changed.)
+        self.do(*press("B", 30))
+        self.assertEqual((self.s.read(h.MOVE_POWER + h.HIDDEN_POWER * 6, 2),
+                          self.s.read(h.MOVE_POWER + h.RETURN * 6, 2)), table)
+        self.assertEqual(table, (h.rom_bytes(h.MOVE_POWER + h.HIDDEN_POWER * 6, 2),
+                                 h.rom_bytes(h.MOVE_POWER + h.RETURN * 6, 2)))
+
     def test_typing_a_name(self):
         self.start(*h.OPEN_EDITOR, *press(UP))
         state = self.s.edit_state()

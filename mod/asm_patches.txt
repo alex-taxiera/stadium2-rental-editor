@@ -22,6 +22,14 @@ func_8130EC9C   8130ECEC  jal         Mod_EnterYesDisabled
 # the move's type), which makes it grey for a move the rules reject.
 func_8130DEB8   8130E288  jal         Mod_PanelMoveColorShim
 
+# Detail panel: each move's type, for its icon and its name's colour, and the box opened
+# on a move with the C buttons, are asked of the mod (func_80062D98 and func_81606304),
+# which gives Hidden Power the type its DVs decide and the box Hidden Power's, Return's
+# and Frustration's power.
+func_8130DEB8   8130E188  jal         Mod_PanelMoveTypeShim
+func_8130DEB8   8130E280  jal         Mod_PanelMoveTypeShim
+func_8130DEB8   8130E978  jal         Mod_PanelMoveInfoShim
+
 # List of registered teams: the rule set's name for its heading is asked of the mod
 # (func_8004C874, with the text bank and the rule set's text), which gives the name in
 # the record of a rule set that has no text.

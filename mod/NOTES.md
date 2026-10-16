@@ -201,9 +201,10 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
   BizHawk's Ares64 core is the same emulation core.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
   before entering it loses the edit. An edit made on the team lives in the team's cell
-  only: exchanged away and chosen again, the Pokémon is the list's copy. The stock detail
-  panel and the battle menu label Hidden Power as Normal, as they do in the unmodified
-  game.
+  only: exchanged away and chosen again, the Pokémon is the list's copy. In a battle the
+  moves shown with R and a move's details label Hidden Power as Normal, and give no
+  power for it, Return or Frustration, as they do in the unmodified game; the detail
+  panel shows them as the editor does (see "Pokémon helpers").
 
 ## Building
 
@@ -1198,7 +1199,20 @@ DVs are packed `(Atk << 12) | (Def << 8) | (Spd << 4) | Spc`. Rentals can be shi
 `func_8006456C` looks only at the DVs, and the icon, model and battle code all call it
 (seen in the picker and in battle). The game has no helper for Hidden Power outside
 the battle code, so the editor works out its type and power itself (`Edit_MoveType`,
-`Edit_MovePower`). Nicknames tint a Pokémon (`func_8003F5AC`, from the name, OT name and
+`Edit_MovePower`). The detail panel asks the mod for them as well: the type behind each
+move's icon and name colour (`func_80062D98` in `func_8130DEB8`, through
+`Mod_PanelMoveType`), and the box C opens on a move, `func_81606304` (fragment 11),
+which knows only the move's number and reads the move table. `Mod_PanelMoveInfo` puts
+this Pokémon's power and type in the move's entry (`D_8009782B + move * 6`, power then
+type) for as long as the box is drawn, and puts the table's back after.
+
+In a battle the mod is not in memory. The battle's own Hidden Power helpers take the
+DVs: `func_84126EDC` the type and `func_84126E88` the power (fragment 79, used by the
+move's effect). The move tags shown with R are drawn by `func_84141F20` (mode 9 the four,
+0xA one), which looks the type up with `func_80062D98` from the move alone, with the
+side's battle data (`D_84195208[side]`, moves at `+5`, DVs at `+0x2E`) in a register; a
+move's details box gets its power from `func_80062D5C` in `func_8414327C`. Neither is
+changed yet. Nicknames tint a Pokémon (`func_8003F5AC`, from the name, OT name and
 ID), but DVs play no part in that.
 
 ## Trainer pictures
