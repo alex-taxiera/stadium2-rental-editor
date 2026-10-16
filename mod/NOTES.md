@@ -201,10 +201,7 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
   BizHawk's Ares64 core is the same emulation core.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
   before entering it loses the edit. An edit made on the team lives in the team's cell
-  only: exchanged away and chosen again, the Pokémon is the list's copy. In a battle the
-  moves shown with R and a move's details label Hidden Power as Normal, and give no
-  power for it, Return or Frustration, as they do in the unmodified game; the detail
-  panel shows them as the editor does (see "Pokémon helpers").
+  only: exchanged away and chosen again, the Pokémon is the list's copy.
 
 ## Building
 
@@ -1206,14 +1203,45 @@ which knows only the move's number and reads the move table. `Mod_PanelMoveInfo`
 this Pokémon's power and type in the move's entry (`D_8009782B + move * 6`, power then
 type) for as long as the box is drawn, and puts the table's back after.
 
-In a battle the mod is not in memory. The battle's own Hidden Power helpers take the
-DVs: `func_84126EDC` the type and `func_84126E88` the power (fragment 79, used by the
-move's effect). The move tags shown with R are drawn by `func_84141F20` (mode 9 the four,
-0xA one), which looks the type up with `func_80062D98` from the move alone, with the
-side's battle data (`D_84195208[side]`, moves at `+5`, DVs at `+0x2E`) in a register; a
-move's details box gets its power from `func_80062D5C` in `func_8414327C`. Neither is
-changed yet. Nicknames tint a Pokémon (`func_8003F5AC`, from the name, OT name and
-ID), but DVs play no part in that.
+In a battle the mod is not in memory, so the battle's menus are changed in place
+(`mod/stock_patches.txt`). They look a move up by its number alone, with
+`func_80062D98` and `func_80062D5C`, in five places, all of fragment 79 and none of them
+the battle's own reckoning (the move's effects work Hidden Power out with
+`func_84126EDC` the type and `func_84126E88` the power, from the DVs):
+
+| Where | What it draws | What it has in hand |
+|---|---|---|
+| `func_84141F20` mode 9 | the four tags shown while R is held | `$t0` the side's battle data |
+| `func_84141BE0` mode 9 | the plates under them, in the type's colour | `$t1` the same |
+| `func_84141F20` mode 0xA | the tag over the box R and the pad open on a move | `$t9` the same |
+| `func_8414327C` mode 0xA | that box's POWER | `$s0` the box, the side at `+1` |
+| `func_84141D1C` mode 0xD | a Pokémon's tags in its status, from the POKéMON list | `$t6` the battle data if it is fighting (`$t2 == $t5`), else `$s7` its record |
+
+`func_8413F640(x, y, type)` draws a tag, its colour and the type's name on it, so the
+type it is given is all there is to change. The side's battle data is
+`D_84195208[side]` (moves at `+5`, DVs at `+0x2E`, as the Hidden Power effect reads
+them, so Transform is followed), and `D_84195200[side]` is the record of the one
+fighting (happiness at `+0x1C`, as Return's and Frustration's effects read it).
+
+The five calls become `bal`s to a helper written over `func_84154DF8` (fragment
+79's `0x84154E24`-`0x84154F98`), which nothing calls: nothing in the decompilation names
+it, and no entry of fragment 79's relocation table points at it (so no call, pointer or
+`%hi`/`%lo` pair reaches it; the same goes for `func_8415D074` and `func_84104270`).
+The four words of it that the loader relocates are left as they are and never run. The
+helper works the type and power out as `func_84126EDC`, `func_84126E88` and the
+effects do, and hands any other move to the stock lookups (`j` as a raw word, which
+names no symbol). The box's POWER finds `D_84195200` from its own address (`bal` puts it
+in `$ra`), as the fragment may be loaded anywhere.
+
+A call's word is in the relocation table, which `modtool.py` once refused to patch.
+`Memmap_RelocateFragment` rewrites such a word from its target field, through
+`Memmap_GetFragmentVaddr`, which leaves an address outside the fragments alone; a `bal`'s
+field points there, so the word comes back as it was. The tool now lets a patch replace
+a call's word when that is so (`survives_relocation`), and refuses any other relocated
+word as before.
+
+Nicknames tint a Pokémon (`func_8003F5AC`, from the name, OT name and ID), but DVs play
+no part in that.
 
 ## Trainer pictures
 

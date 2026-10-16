@@ -7,17 +7,10 @@ import unittest
 
 import harness as h
 import screens
-from harness import DOWN, LEFT, RIGHT, UP, EditState, Panel, press, presses
+from harness import DOWN, LEFT, LIST_PAGE, RIGHT, UP, EditState, Panel, press, presses, to_list_entry
 
-LIST_PAGE = 7      # EDIT_LIST_ROWS
 KEY_ROW_WIDE = 4   # the keyboard's bottom row: lower/UPPER, DEL, END
 END_COLUMN = 7     # where the cursor rests on END
-
-
-def to_list_entry(index: int, cursor: int) -> list:
-    """Commands that move the move list's cursor from `cursor` to `index`."""
-    return (presses(LEFT, -(-cursor // LIST_PAGE)) + presses(RIGHT, index // LIST_PAGE)
-            + presses(DOWN, index % LIST_PAGE))
 
 
 @unittest.skipUnless(h.AVAILABLE, h.SKIP_REASON)

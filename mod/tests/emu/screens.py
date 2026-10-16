@@ -50,6 +50,18 @@ MODEL = (80, 296, 138, 354)
 PANEL_MOVES = (78, 366, 372, 440)
 # The inside of the box the C buttons open on one of them: its type, power and description.
 MOVE_BOX = (300, 264, 584, 380)
+# A battle's frame buffer is 320x240, half a screenshot's size, and these are in it.
+# Holding R: the type under the top move's name (C Up), and under the right one's
+# (C Right); and the plate each name is on, in the colour of the type.
+BATTLE_LABEL_UP = (110, 31, 142, 42)
+BATTLE_LABEL_RIGHT = (214, 38, 247, 48)
+BATTLE_PLATE_UP = (110, 19, 190, 29)
+BATTLE_PLATE_RIGHT = (212, 26, 290, 36)
+# Holding R and pressing the pad: the box for that move, its type and its power.
+BATTLE_BOX_LABEL = (116, 31, 147, 42)
+BATTLE_BOX_POWER = (232, 19, 266, 31)
+# The POKeMON list, holding R and pressing the pad: the type under that one's first move.
+BATTLE_STATUS_LABEL = (178, 32, 210, 43)
 # The rule viewer's box for what is behind a line, when the line has four rows of it.
 VIEWER = (70, 190, 570, 330)
 # RULE EDIT's page for one rule set, without the hand that points at a row.
@@ -158,6 +170,26 @@ def check_drawn(test, name: str, pixels: bytes, path: Path) -> None:
     them, so the boxes above serve for both. `path` is a screenshot of the same moment,
     for the look that recording a hash takes."""
     compare(test, name, hashlib.sha1(pixels).hexdigest(), path)
+
+
+def drawn_colours(pixels: bytes) -> list:
+    """The pixels from Session.drawn as (red, green, blue), each 0-31: the frame buffer
+    holds them as RGBA 5551."""
+    return [((v >> 11) & 31, (v >> 6) & 31, (v >> 1) & 31) for (v,) in struct.iter_unpack(">H", pixels)]
+
+
+def outline(pixels: bytes) -> bytes:
+    """Which of the pixels from Session.drawn are black, a byte each. The battle draws its
+    menus over a scene the camera moves through, so most of what they show changes from
+    frame to frame, and the battle's frames come a frame sooner or later from one build
+    to the next. The black outline of their text is opaque, and is the text's shape."""
+    return bytes(max(colour) <= 1 for colour in drawn_colours(pixels))
+
+
+def check_outline(test, name: str, pixels: bytes, path: Path) -> None:
+    """Fails `test` unless the outline of the text in `pixels` matches the hash recorded
+    as `name`. `path` is a screenshot of the same moment."""
+    compare(test, name, hashlib.sha1(outline(pixels)).hexdigest(), path)
 
 
 def compare(test, name: str, actual: str, path: Path) -> None:

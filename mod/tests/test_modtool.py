@@ -220,6 +220,30 @@ class SplitAddressTest(unittest.TestCase):
         self.assertEqual(modtool.split_address(self.TABLE, 0x14, 0x18), 0x14)   # its HI16 is at 0x10
 
 
+class SurvivesRelocationTest(unittest.TestCase):
+    """Which words over a relocated one the fragment loader would leave as they are."""
+
+    def test_a_branch_over_a_call_survives(self):
+        self.assertTrue(modtool.survives_relocation(fr.R_MIPS_26, 0x04114B94))   # bal . + 0x12E54
+        self.assertTrue(modtool.survives_relocation(fr.R_MIPS_26, 0x0C018B66))   # jal into the main segment
+        self.assertTrue(modtool.survives_relocation(fr.R_MIPS_26, 0x00000000))   # nop
+
+    def test_a_call_into_a_fragment_does_not(self):
+        self.assertFalse(modtool.survives_relocation(fr.R_MIPS_26, 0x0D0543A9))  # jal func_84150EA4
+
+    def test_nothing_else_relocated_may_change(self):
+        for kind in (fr.R_MIPS_32, fr.R_MIPS_HI16, fr.R_MIPS_LO16):
+            self.assertFalse(modtool.survives_relocation(kind, 0x00000000), kind)
+
+    def test_it_agrees_with_the_loader(self):
+        image = bytearray(8)
+        for word in (0x04114B94, 0x0C018B66, 0x0D0543A9, 0x10000002):
+            struct.pack_into(">I", image, 0, word)
+            out = fr.relocate(bytes(image), [fr.R_MIPS_26 << 24], {fr.fragment_id(0x84100000): 0x80147EB0})
+            self.assertEqual(struct.unpack_from(">I", out)[0] == word,
+                             modtool.survives_relocation(fr.R_MIPS_26, word), hex(word))
+
+
 MOD_ROM = REPO_ROOT / "build" / "pokestadiumgs-us-mod.z64"
 PATCHED_OBJ = REPO_ROOT / "build" / "mod" / "patched.o"
 ASM_DIR = REPO_ROOT / "asm" / "us"
@@ -298,12 +322,15 @@ class InjectedRomTest(unittest.TestCase):
         for at in offsets:
             self.assertNotEqual(self.rom[at:at + 4], self.stock[at:at + 4], f"{at:#x}")
 
-    def test_stock_patches_are_of_nothing_the_game_relocates(self):
+    def test_stock_patches_are_of_nothing_relocating_would_change(self):
         hooked = {hook["fragment"] for hook in self.hooks()}
         for patches in modtool.read_patches(REPO_ROOT / "mod" / "stock_patches.txt").values():
             at, relocated = modtool.stock_home(self.elf, self.rom, patches[0][0])
             for address, _ in patches:
-                self.assertNotIn(at + address - patches[0][0], relocated)
+                rom_at = at + address - patches[0][0]
+                if rom_at in relocated:
+                    (word,) = struct.unpack_from(">I", self.rom, rom_at)
+                    self.assertTrue(modtool.survives_relocation(relocated[rom_at], word), f"{address:#x}")
             if not relocated:
                 continue   # the main segment, which has no table
             # A fragment that only has patches keeps its table as it was.
@@ -324,7 +351,8 @@ class InjectedRomTest(unittest.TestCase):
         table = fr.read_table(self.stock, fr.read_header(self.stock, start))
         first, size = modtool.function_extent(modtool.find_function_asm(ASM_DIR, name))
         relocated = next(section.addr + (entry & fr.OFFSET_MASK) for entry in table
-                         if first <= section.addr + (entry & fr.OFFSET_MASK) < first + size)
+                         if first <= section.addr + (entry & fr.OFFSET_MASK) < first + size
+                         and (entry >> 24) & 0x7F != fr.R_MIPS_26)   # a nop over a call would survive
         rom = bytearray(self.stock)
         with self.assertRaises(ValueError):
             modtool.apply_stock_patches(rom, self.elf, patched, {name: [(relocated, "nop")]}, ASM_DIR)

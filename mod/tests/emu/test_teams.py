@@ -54,6 +54,59 @@ class EnteredPokemonTest(h.EmulatorTest):
         fighting = Record(self.s.read(h.BATTLE_RECORD, h.RECORD_SIZE))
         self.assertEqual(fighting.editable, edited.editable)
 
+    def held(self, buttons: str, boxes: dict, shot: str) -> dict:
+        """What the game draws in `boxes` while `buttons` are held: read twice, 9 frames
+        apart, which must agree, as the scene behind the menus moves. Then a screenshot."""
+        self.do(f"keep {buttons} 40")
+        first = {name: self.s.drawn(box) for name, box in boxes.items()}
+        self.do(f"keep {buttons} 9")
+        for name, box in boxes.items():
+            self.assertEqual(screens.outline(self.s.drawn(box)), screens.outline(first[name]), name)
+        self.do("turbo off", f"hold {buttons} 2 {shot}", "turbo on", "wait 20")
+        return first
+
+    def test_a_battle_shows_hidden_power_and_return_as_this_pokemon_has_them(self):
+        # Hidden Power over Psychic and Return over Ice Punch: Ghost 69 from DVs 0x9AA9,
+        # and 51 from happiness 128.
+        self.start(*h.OPEN_EDITOR, *press("A", 20))
+        entries = [0] + h.legal_moves(h.ABRA)
+        self.do(*h.to_list_entry(entries.index(h.HIDDEN_POWER), self.s.edit_state().cursor), *press("A", 20),
+                *press(DOWN), *press("A", 20))
+        self.do(*h.to_list_entry(entries.index(h.RETURN), self.s.edit_state().cursor), *press("A", 20))
+        record = self.s.record()
+        self.assertEqual(record.moves[:2], [h.HIDDEN_POWER, h.RETURN])
+        self.assertEqual((record.dvs, record.happiness), (0x9AA9, 128))
+        self.do(*ENTER, *TO_BATTLE, *press("A", 60))   # and BATTLE
+        shots = self.s.dir
+
+        # Holding R: Hidden Power's type is Ghost, on a plate of Ghost's purple; Return's
+        # is Normal, on a grey one.
+        tags = self.held("R", {"up": screens.BATTLE_LABEL_UP, "right": screens.BATTLE_LABEL_RIGHT,
+                               "up plate": screens.BATTLE_PLATE_UP, "right plate": screens.BATTLE_PLATE_RIGHT},
+                         "battle_tags")
+        screens.check_outline(self, "battle_tag_hidden_power", tags["up"], shots / "battle_tags.png")
+        screens.check_outline(self, "battle_tag_return", tags["right"], shots / "battle_tags.png")
+
+        def purple(pixels):
+            return sum(r >= g + 2 and b >= g + 5 for r, g, b in screens.drawn_colours(pixels))
+
+        self.assertGreater(purple(tags["up plate"]), 100)   # about 200 of its 800
+        self.assertEqual(purple(tags["right plate"]), 0)
+
+        # R and the pad: the box for each, with its type and power.
+        for direction, name in (("U", "hidden_power"), ("R", "return")):
+            self.do("keep R 20")
+            box = self.held(f"R+DPad {direction}", {"label": screens.BATTLE_BOX_LABEL,
+                                                    "power": screens.BATTLE_BOX_POWER}, f"battle_box_{name}")
+            screens.check_outline(self, f"battle_box_{name}_type", box["label"], shots / f"battle_box_{name}.png")
+            screens.check_outline(self, f"battle_box_{name}_power", box["power"], shots / f"battle_box_{name}.png")
+
+        # Back out (L), POKeMON (B), and with R and the pad the status of the one fighting,
+        # with its moves.
+        self.do(*press("L", 40), *press("B", 60), "keep R 30")
+        status = self.held("R+DPad L", {"label": screens.BATTLE_STATUS_LABEL}, "battle_status")
+        screens.check_outline(self, "battle_status_hidden_power", status["label"], shots / "battle_status.png")
+
     def test_a_registered_team_keeps_its_edits(self):
         edited = self.edit()
         # Yes, then Start and "OK to Register".

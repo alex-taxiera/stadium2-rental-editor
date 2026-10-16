@@ -1,6 +1,7 @@
 # In-place instruction changes to stock code that runs while the mod is not in memory.
 # See tools/mod/modtool.py. None of these instructions may be one the fragment loader
-# relocates, which the tool checks.
+# relocates, unless relocating it leaves it as it is (a branch over a call), which the
+# tool checks.
 #
 # function      address   new instruction
 
@@ -250,3 +251,119 @@ func_80051890   80051974  nop
 # and the save file is not asked. It still notes each stage as it is met.
 func_831000FC   83100130  slti        $at, $s0, 0x1E
 func_831000FC   8310015C  slti        $at, $s0, 0x1E
+
+# The battle (fragment 79): what holding R shows of each move, and the box R and the pad
+# open on one, give Hidden Power the type and power its DVs decide, and Return and
+# Frustration the power happiness gives them, where the game looked the move up by its
+# number alone (func_80062D98, func_80062D5C). The five calls become branches to a
+# helper in func_84154DF8, which nothing in the game calls (no relocation in fragment 79
+# points at it, and nothing names it): the type, as func_84126EDC works it out, and the
+# power, as func_84126E88 and the moves' effects do. Each call's word is relocated as a
+# call, which leaves a branch as it is. Calls into the main segment are written as words,
+# `j` naming no symbol: 0x08018B66 is `j func_80062D98`, 0x08018B57 `j func_80062D5C`.
+
+# The four tags shown while R is held (func_84141F20, mode 9): the side's battle data is
+# in $t0. The one tag over the box for a move (mode 0xA): it is in $t9.
+func_84141F20   84141FD0  bal         . + 0x12E54
+func_84141F20   84142030  bal         . + 0x12DFC
+# The plates under those four, in the colour of the type (func_84141BE0, which is C in
+# the decompilation): the battle data is in $t1.
+func_84141BE0   84141C78  bal         . + 0x131CC
+# A Pokemon's tags in its status from the POKeMON list (func_84141D1C): its battle data
+# in $t6 if it is the one fighting ($t2 == $t5), otherwise its record in $s7.
+func_84141D1C   84141EA0  bal         . + 0x12F94
+# The power in the box for a move (func_8414327C); $s0 is the box, with the side at +1.
+func_8414327C   841433AC  bal         . + 0x11B18
+
+# The helper. Where the type is looked up, in the order above but the plates last: $a1
+# to the DVs, then TYPE.
+func_84154DF8   84154E24  b           . + 0x54
+func_84154DF8   84154E28  addiu       $a1, $t0, 0x2E
+func_84154DF8   84154E2C  b           . + 0x4C
+func_84154DF8   84154E30  addiu       $a1, $t9, 0x2E
+func_84154DF8   84154E34  bne         $t2, $t5, . + 0x44
+func_84154DF8   84154E38  addiu       $a1, $s7, 0x16
+func_84154DF8   84154E3C  b           . + 0x3C
+func_84154DF8   84154E40  addiu       $a1, $t6, 0x2E
+func_84154DF8   84154E44  b           . + 0x34
+func_84154DF8   84154E48  addiu       $a1, $t1, 0x2E
+# TYPE: $a0 the move, $a1 the DVs. Hidden Power's is ((Attack & 3) << 2 | (Defense & 3))
+# + 1, past Bird and then past the gap before Fire; any other move's is the table's.
+func_84154DF8   84154E78  addiu       $at, $zero, 0xED
+func_84154DF8   84154E7C  bne         $a0, $at, . + 0x40
+func_84154DF8   84154E80  lhu         $t0, 0x0($a1)
+func_84154DF8   84154E84  andi        $t1, $t0, 0x3000
+func_84154DF8   84154E88  srl         $t1, $t1, 10
+func_84154DF8   84154E8C  andi        $t2, $t0, 0x300
+func_84154DF8   84154E90  srl         $t2, $t2, 8
+func_84154DF8   84154E94  or          $v0, $t1, $t2
+func_84154DF8   84154E98  addiu       $v0, $v0, 0x1
+func_84154DF8   84154E9C  slti        $at, $v0, 0x6
+func_84154DF8   84154EA0  bnez        $at, . + 0x14
+func_84154DF8   84154EA4  slti        $at, $v0, 0x9
+func_84154DF8   84154EA8  bnez        $at, . + 0xC
+func_84154DF8   84154EAC  addiu       $v0, $v0, 0x1
+func_84154DF8   84154EB0  addiu       $v0, $v0, 0xA
+func_84154DF8   84154EB4  jr          $ra
+func_84154DF8   84154EB8  nop
+func_84154DF8   84154EBC  .word       0x08018B66
+func_84154DF8   84154EC0  nop
+# Where the power is looked up: the side's record ($a2, to its happiness) and battle data
+# ($a1, to its DVs) are D_84195200[side] and D_84195208[side], found from where this
+# code is (0x84154ED8, which `bal` puts in $ra) as the fragment may be anywhere.
+func_84154DF8   84154EC4  lbu         $t0, 0x1($s0)
+func_84154DF8   84154EC8  sll         $t0, $t0, 2
+func_84154DF8   84154ECC  or          $t3, $ra, $zero
+func_84154DF8   84154ED0  bal         . + 0x8
+func_84154DF8   84154ED4  nop
+func_84154DF8   84154ED8  lui         $t1, 0x4
+func_84154DF8   84154EDC  addiu       $t1, $t1, 0x328
+func_84154DF8   84154EE0  addu        $t1, $t1, $ra
+func_84154DF8   84154EE4  addu        $t1, $t1, $t0
+func_84154DF8   84154EE8  lw          $a2, 0x0($t1)
+func_84154DF8   84154EEC  lw          $a1, 0x8($t1)
+func_84154DF8   84154EF0  addiu       $a2, $a2, 0x1C
+func_84154DF8   84154EF4  addiu       $a1, $a1, 0x2E
+func_84154DF8   84154EF8  or          $ra, $t3, $zero
+# POWER: $a0 the move. Return's is happiness * 10 / 25, Frustration's (255 - happiness)
+# * 10 / 25, Hidden Power's func_84126E88's; any other move's is the table's.
+func_84154DF8   84154EFC  addiu       $at, $zero, 0xED
+func_84154DF8   84154F00  beq         $a0, $at, . + 0x40
+func_84154DF8   84154F04  addiu       $at, $zero, 0xD8
+func_84154DF8   84154F08  beq         $a0, $at, . + 0x18
+func_84154DF8   84154F0C  lbu         $t0, 0x0($a2)
+func_84154DF8   84154F10  addiu       $at, $zero, 0xDA
+func_84154DF8   84154F14  bne         $a0, $at, . + 0x80
+func_84154DF8   84154F18  addiu       $t1, $zero, 0xFF
+func_84154DF8   84154F1C  subu        $t0, $t1, $t0
+func_84154DF8   84154F20  sll         $t1, $t0, 2
+func_84154DF8   84154F24  addu        $t1, $t1, $t0
+func_84154DF8   84154F28  sll         $t1, $t1, 1
+func_84154DF8   84154F2C  addiu       $t2, $zero, 0x19
+func_84154DF8   84154F30  div         $zero, $t1, $t2
+func_84154DF8   84154F34  mflo        $v0
+func_84154DF8   84154F38  jr          $ra
+func_84154DF8   84154F3C  nop
+func_84154DF8   84154F40  lhu         $a0, 0x0($a1)
+func_84154DF8   84154F44  andi        $t6, $a0, 0x8000
+func_84154DF8   84154F48  andi        $t8, $a0, 0x800
+func_84154DF8   84154F4C  sra         $t9, $t8, 9
+func_84154DF8   84154F50  sra         $t7, $t6, 12
+func_84154DF8   84154F54  andi        $t1, $a0, 0x80
+func_84154DF8   84154F58  sra         $t2, $t1, 6
+func_84154DF8   84154F5C  or          $t0, $t7, $t9
+func_84154DF8   84154F60  andi        $t4, $a0, 0x8
+func_84154DF8   84154F64  sra         $t5, $t4, 3
+func_84154DF8   84154F68  or          $t3, $t0, $t2
+func_84154DF8   84154F6C  or          $t8, $t3, $t5
+func_84154DF8   84154F70  sll         $t7, $t8, 2
+func_84154DF8   84154F74  addu        $t9, $t7, $t8
+func_84154DF8   84154F78  andi        $t1, $a0, 0x3
+func_84154DF8   84154F7C  addu        $v1, $t9, $t1
+func_84154DF8   84154F80  andi        $v1, $v1, 0xFFFF
+func_84154DF8   84154F84  srl         $v1, $v1, 1
+func_84154DF8   84154F88  addiu       $v1, $v1, 0x1F
+func_84154DF8   84154F8C  jr          $ra
+func_84154DF8   84154F90  andi        $v0, $v1, 0xFFFF
+func_84154DF8   84154F94  .word       0x08018B57
+func_84154DF8   84154F98  nop

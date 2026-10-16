@@ -36,7 +36,10 @@ therefore has to be left as it was past the thunk.
 Stock code that the mod is not in memory for can be changed in place instead.
 mod/stock_patches.txt lists single instructions to replace, in any fragment or in the
 main segment, as mod/asm_patches.txt does for moved functions. Such an instruction may
-not be one the fragment loader relocates, or one that names a symbol. A function the
+not name a symbol, nor be one the fragment loader relocates, unless relocating it leaves
+it as it was: a call's word (R_MIPS_26) is rewritten from its own target field, and the
+loader leaves a target outside the fragments alone, so a branch there survives it. A
+function the
 decompilation has in C has no assembly to put the lines into, so its lines are
 assembled each alone, and may not use the function's labels: a branch is `. + offset`.
 The rest of a function hooked with `detour` or `call`, which stays where it is, can be
@@ -417,14 +420,27 @@ def stock_fragment(game_elf: fr.Elf, address: int) -> tuple:
 
 def stock_home(game_elf: fr.Elf, rom: bytes, address: int) -> tuple:
     """Where stock code is: (the ROM offset of `address`, the ROM offsets around it that
-    the game relocates as it loads them). The main segment is not relocated."""
+    the game relocates as it loads them, each with the kind of its relocation). The main
+    segment is not relocated."""
     main = game_elf.by_name[MAIN_SECTION]
     if main.addr <= address < main.addr + main.size:
-        return game_elf.symbol("text_ROM_START") + address - main.addr, set()
+        return game_elf.symbol("text_ROM_START") + address - main.addr, {}
     number, section = stock_fragment(game_elf, address)
     stock_rom = game_elf.symbol(f"fragment{number}_ROM_START")
     table = fr.read_table(rom, fr.read_header(rom, stock_rom))
-    return stock_rom + address - section.addr, {stock_rom + (entry & fr.OFFSET_MASK) for entry in table}
+    return stock_rom + address - section.addr, {stock_rom + (entry & fr.OFFSET_MASK): (entry >> 24) & 0x7F
+                                                for entry in table}
+
+
+def survives_relocation(kind: int, word: int) -> bool:
+    """Whether the fragment loader leaves `word` as it is when it relocates it as `kind`
+    (Memmap_RelocateFragment). Only a call's word can: it is rewritten from its target
+    field, and a target outside the fragments' addresses is left alone, so any word whose
+    field points there comes back unchanged (a branch, whose field holds registers and an
+    offset, among them). The other kinds are refused whatever the word."""
+    if kind != fr.R_MIPS_26:
+        return False
+    return ((word * 4) & 0x0FFFFFFC) + 0x80000000 not in fr.FRAGMENT_SPACE
 
 
 def apply_stock_patches(rom: bytearray, game_elf: fr.Elf, patched: fr.Elf, stock_patches: dict,
@@ -433,8 +449,9 @@ def apply_stock_patches(rom: bytearray, game_elf: fr.Elf, patched: fr.Elf, stock
 
     `patched` is the object assembled from patched.s. Only the words at the listed
     addresses are taken from it, and none of them may need relocating: not by the
-    linker (the object is never linked) and not by the game's fragment loader. Nor
-    may one be under a hook's thunk.
+    linker (the object is never linked), and not by the game's fragment loader unless
+    relocating the new word leaves it as it is (survives_relocation). Nor may one be
+    under a hook's thunk.
     """
     if not stock_patches:
         return 0
@@ -455,7 +472,8 @@ def apply_stock_patches(rom: bytearray, game_elf: fr.Elf, patched: fr.Elf, stock
                 raise ValueError(f"{name}: {address:#x} is not in the function, or is under its hook's thunk")
             at = base + address - start if whole else patched.symbol(lone_label(name, address))
             rom_at = rom_start + address - start
-            if at in unlinked or rom_at in loaded:
+            (word,) = struct.unpack_from(">I", code, at)
+            if at in unlinked or (rom_at in loaded and not survives_relocation(loaded[rom_at], word)):
                 raise ValueError(f"{name}: the instruction at {address:#x} is relocated, "
                                  "so it cannot be changed in place")
             rom[rom_at:rom_at + 4] = code[at:at + 4]

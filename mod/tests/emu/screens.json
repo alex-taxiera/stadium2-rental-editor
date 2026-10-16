@@ -1,4 +1,11 @@
 {
+  "battle_box_hidden_power_power": "9e50b46818cd417ce26b4fac059729d0c46a4703",
+  "battle_box_hidden_power_type": "eb96bab148fe62324d1aaf5bf15f15ffaba547d0",
+  "battle_box_return_power": "81d805fc469367446f7e806d13444d39e8f1d90b",
+  "battle_box_return_type": "c799245db2233f2e33a52fda48bf84fb8f2fe3ce",
+  "battle_status_hidden_power": "f7d5ed6cdc1e2ec771b5c5cc08577696d5e31e49",
+  "battle_tag_hidden_power": "152de9488eac7fab87cd1bbaa8b13498c7711fa5",
+  "battle_tag_return": "026ca314ceaaa698b10b2d37b82a5aaadfb11f3c",
   "box_hidden_power": "0cf58dffb327ec32a0454680b4a94cfd5dd74a22",
   "box_return": "60a485720c3bed80fd9f6c0c150871f321c46c67",
   "clause_fixed": "c0262c24b9dd33803a75a6432075c0bdcf264cbd",

@@ -138,6 +138,8 @@ when the Pokémon knows the move. A rental made shiny looks shiny everywhere, ba
 included. The game's own panel below shows Hidden Power by its real type too, in its icon
 and the colour of its name, and the box C opens on a move gives Hidden Power's type and
 power and the power of Return and Frustration, where the original has Normal and `---`.
+So does a battle: the moves shown while R is held, the box R and the pad open on one
+(with its POWER), and a Pokémon's status from the POKéMON list.
 
 A registered team keeps its edits. A trainer's picture, name and title are not saved:
 they last until the console is switched off.
@@ -232,8 +234,6 @@ rentals, and three of six fight.
 - Edit POKéMON needs the team's menu, which under rules that want a full team (the Poké
   Cup, for one) only comes up once six are chosen. Under Anything Goes, Start brings it
   up from the first.
-- In a battle, the moves shown with R and a move's details label Hidden Power as
-  Normal, and show no power for it, Return or Frustration, as the original does.
 - Moves are checked one at a time. Combinations that cannot exist on one Pokémon in the
   Game Boy games are not rejected.
 - OU Rules is on the list of your own rule sets, which has eight places: with eight
@@ -271,13 +271,16 @@ rentals, and three of six fight.
 ## What has been tested
 
 Everything below was run in BizHawk 2.x with its Ares64 core, driven by scripts. Most of
-it is now an automated suite (`mod/tests/emu`, 71 scenarios) that plays the editor and
+it is now an automated suite (`mod/tests/emu`, 72 scenarios) that plays the editor and
 checks the game's memory afterwards; see "Tests" in [NOTES.md](NOTES.md).
 
 - Moves, level, happiness, DVs and Stat Exp edited and carried into a battle.
 - Shiny, gender, Unown's letter and Hidden Power shown and updated as DVs change.
 - Hidden Power's type in the game's panel, and its type and power and Return's power in
   the box C opens there, with the game's table of moves as it was once the box is shut.
+- In a battle, Hidden Power's type on its tag and plate while R is held, its type and
+  power and Return's power in the box R and the pad open, and its type in the status
+  shown from the POKéMON list.
 - Nicknames typed across both pages, special signs included; one shown in battle and
   read back byte for byte from a registered team after a console reset. The ten-character
   limit, an empty name, backing out, and the cursor wrapping at every edge.

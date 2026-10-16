@@ -11,6 +11,8 @@
 --
 --   press <buttons> [frames]   hold e.g. "A" or "A+DPad D" (default 4 frames), then release
 --   hold <buttons> <frames> [name]   hold, and screenshot to <name>.png while held
+--   keep <buttons> <frames>    hold, and stop without letting go: the frame shown was
+--                              drawn with them held, for reading the frame buffer
 --   stick <x> <y> [frames]     hold the analog stick (-127..127)
 --   player <1-4>               which controller press, hold and stick drive (default 1)
 --   wait <frames>
@@ -89,6 +91,17 @@ function commands.hold(args)
         log("shot " .. args[at + 1] .. ".png")
     end
     advance(2)
+end
+
+-- keep <buttons> <frames>: like hold, but the commands after it come before the frame
+-- that lets go, so `read` sees what the game drew while the buttons were held.
+function commands.keep(args)
+    local frames = tonumber(args[#args])
+    local pad = {}
+    for name in table.concat(args, " ", 1, #args - 1):gmatch("[^+]+") do
+        pad[name:match("^%s*(.-)%s*$")] = true
+    end
+    advance(frames, pad)
 end
 
 function commands.stick(args)

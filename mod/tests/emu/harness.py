@@ -426,6 +426,14 @@ OPEN_TEAM_EDITOR = TEAM_MENU + EDIT_POKEMON + OPEN_MEMBER
 OPEN_PANEL = press("A", 60)
 OPEN_EDITOR = OPEN_PANEL + presses(DOWN, 3) + press("A", 30)
 
+LIST_PAGE = 7      # EDIT_LIST_ROWS
+
+
+def to_list_entry(index: int, cursor: int) -> list:
+    """Commands that move the editor's move list's cursor from `cursor` to `index`."""
+    return (presses(LEFT, -(-cursor // LIST_PAGE)) + presses(RIGHT, index // LIST_PAGE)
+            + presses(DOWN, index % LIST_PAGE))
+
 
 class Session:
     """A running game. `scene` returns the commands that put a test at its starting point."""
