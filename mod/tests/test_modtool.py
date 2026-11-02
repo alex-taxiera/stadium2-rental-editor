@@ -423,7 +423,7 @@ class DecompilationTest(unittest.TestCase):
 
     def test_hooked_functions_are_still_assembly_in_the_decompilation(self):
         sources = "\n".join(path.read_text(encoding="utf-8", errors="replace")
-                             for path in (REPO_ROOT / "src").rglob("*.c"))
+                             for path in (REPO_ROOT / "decomp" / "src").rglob("*.c"))
         for hook in modtool.read_hooks(REPO_ROOT / "mod" / "hooks.txt"):
             name = hook["function"]
             self.assertRegex(sources, rf'GLOBAL_ASM\("[^"]*/{name}(_manual)?\.s"\)', name)

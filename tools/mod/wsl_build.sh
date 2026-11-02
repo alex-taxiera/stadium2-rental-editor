@@ -3,7 +3,8 @@
 #
 # The repo lives on the Windows drive, where WSL file access is slow, so this
 # mirrors the sources to a native ext4 directory, builds there, and copies the
-# results back:
+# results back. The mirror has the decompilation (the decomp/ submodule) at its root
+# with mod/ and tools/mod/ laid over it:
 #
 #   tools/mod/wsl_build.sh init        first-time setup: venv, tools, extract, baseline build
 #   tools/mod/wsl_build.sh             incremental build (matching, MOD=0)
@@ -15,6 +16,7 @@
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+DECOMP="$SRC/decomp"
 MIRROR="${MIRROR:-$HOME/stadium2-build}"
 VENV="${VENV:-$HOME/.venvs/stadium2}"
 JOBS="${JOBS:-$(nproc)}"
@@ -34,6 +36,18 @@ check_prereqs() {
         echo "Run:  $APT_LINE" >&2
         exit 2
     fi
+    if [[ ! -f "$DECOMP/Makefile" ]]; then
+        echo "The decompilation is missing from $DECOMP" >&2
+        echo "Run:  git submodule update --init" >&2
+        exit 3
+    fi
+    # The decompilation has no .gitattributes, so a Windows git set to autocrlf checks it
+    # out with line endings the build cannot use.
+    if grep -q $'\r' "$DECOMP/Makefile"; then
+        echo "$DECOMP has CRLF line endings" >&2
+        echo "Run:  git -C decomp config core.autocrlf false && git -C decomp rm -rq --cached . && git -C decomp reset -q --hard" >&2
+        exit 3
+    fi
     local rom="$SRC/baseroms/$VERSION/baserom.z64"
     if [[ ! -f "$rom" ]]; then
         echo "Missing $rom" >&2
@@ -50,12 +64,17 @@ check_prereqs() {
 push_sources() {
     mkdir -p "$MIRROR"
     rsync -a --delete \
-        --exclude='/.git/' --exclude='/build/' --exclude='/asm/' --exclude='/assets/' \
+        --exclude='/.git' --exclude='/mod/' --exclude='/tools/mod/' \
+        --exclude='/baseroms/*/baserom.z64' --exclude='/build/' --exclude='/asm/' --exclude='/assets/' \
         --exclude='/expected/' --exclude='/.splat/' --exclude='/.venv/' \
         --exclude='/linker_scripts/*/auto/' --exclude='/pokestadiumgs-*.yaml' \
         --exclude='/lib/ultralib/build/' --exclude='/tools/vtxdis' \
         --exclude='__pycache__/' --exclude='*.o' \
-        "$SRC/" "$MIRROR/"
+        "$DECOMP/" "$MIRROR/"
+    mkdir -p "$MIRROR/tools/mod" "$MIRROR/baseroms/$VERSION"
+    rsync -a --delete --exclude='__pycache__/' "$SRC/mod/" "$MIRROR/mod/"
+    rsync -a --delete --exclude='__pycache__/' "$SRC/tools/mod/" "$MIRROR/tools/mod/"
+    rsync -a "$SRC/baseroms/$VERSION/baserom.z64" "$MIRROR/baseroms/$VERSION/"
     chmod -R u+x "$MIRROR/tools/ido" "$MIRROR/tools/"*.py 2>/dev/null || true
 }
 

@@ -10,10 +10,10 @@ name: Rental editor release
 
 on:
   push:
-    branches: [rental-editor]
+    branches: [main]
     tags: ["v*"]
   pull_request:
-    branches: [rental-editor]
+    branches: [main]
   release:
     types: [published]
 

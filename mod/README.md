@@ -393,8 +393,8 @@ name and title. The trainer pictures get a second directory, in another unused p
 the ROM, that gives each face a number of its own; no picture is moved or changed.
 [NOTES.md](NOTES.md) has the details.
 
-This is built on [michiiik/pokestadiumgs](https://github.com/michiiik/pokestadiumgs), a
-fork of [pret/pokestadiumgs](https://github.com/pret/pokestadiumgs). Move legality comes
+This is built on [team-hippodrome/pokestadiumgs](https://github.com/team-hippodrome/pokestadiumgs),
+a decompilation of Pokémon Stadium 2. Move legality comes
 from Pokémon Showdown's Gen 2 learnsets and the pret Gold and Crystal disassemblies. The
 sets OU Rules rents are [Smogon](https://www.smogon.com/dex/gs/formats/ou/)'s, from
 [pkmn/smogon](https://github.com/pkmn/smogon)'s data.

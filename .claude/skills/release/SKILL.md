@@ -19,13 +19,13 @@ Two things to hold on to throughout:
   the notes and get a yes before the push, and ask again before publishing. Everything
   before the push is local and can be redone freely.
 
-Find the remote of the user's own repository with `git remote -v` (`origin` is the
-decompilation this is forked from and is read-only). Below it is called `<remote>`.
+Below, `<remote>` is the user's own repository, `origin`. `decomp/` is a submodule of the
+decompilation and is read-only.
 
 ## 1. Is there something to release, and is the build the right one?
 
 ```bash
-git status --short                       # must be clean, on rental-editor
+git status --short                       # must be clean, on main
 git describe --tags --abbrev=0           # the last release, if any
 git diff --stat <last-tag> -- mod/checksums.txt
 python3 tools/mod/checksums.py check     # build/ against mod/checksums.txt
@@ -51,9 +51,7 @@ entry of `mod/CHANGELOG.md`.
 Write the entry for someone who plays the mod: what they can now do, what was fixed,
 what is still untested. Not commit subjects, addresses or tool changes. Work out what
 changed from the previous entry, `mod/README.md` and the mod's commits
-(`git log <last-tag>..HEAD -- mod tools/mod`). After a rebase onto a newer base that
-range lists every commit of the mod again, so trust the previous changelog entry over
-the log for what was already released.
+(`git log <last-tag>..HEAD`).
 
 ```bash
 python3 tools/mod/release_notes.py <version>
@@ -68,14 +66,14 @@ Once the user agrees to the version and notes:
 ```bash
 git commit -am "Changelog for <version>"
 git tag <version>
-git push <remote> rental-editor <version>
+git push <remote> main <version>
 gh run watch $(gh run list --workflow mod-release.yml --event push --branch <version> --limit 1 --json databaseId --jq '.[0].databaseId') --exit-status
 ```
 
 The run's `Draft the release` job creates the draft. If it fails because the changelog
 has no entry for the tag, fix the changelog, commit, then move the tag:
 `git tag -f <version>`, `git push <remote> :refs/tags/<version>`,
-`git push <remote> rental-editor <version>`.
+`git push <remote> main <version>`.
 
 ## 4. Attach the patch and publish
 

@@ -1,0 +1,17 @@
+# Made from the game, never to be committed
+/baseroms/
+/build/
+/asm/
+/assets/
+/expected/
+/.emu/
+*.z64
+*.n64
+*.v64
+
+mod/data/cache/
+__pycache__/
+.venv
+.vscode/
+.claude/settings.local.json
+.DS_Store

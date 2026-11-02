@@ -10,15 +10,15 @@ stage from the start, and all 251 Pokémon for rent.
 
 | | |
 |---|---|
-| ![EDIT under Yes, No and ITEM in the ENTER menu](../mod/images/menu.png) | ![The editor: moves, level, happiness, DVs and Stat Exp, with SHINY shown](../mod/images/editor.png) |
+| ![EDIT under Yes, No and ITEM in the ENTER menu](mod/images/menu.png) | ![The editor: moves, level, happiness, DVs and Stat Exp, with SHINY shown](mod/images/editor.png) |
 | **EDIT** joins Yes / No / ITEM on any rental. | Moves, level, happiness, DVs and Stat Exp. The game's own panel below shows the result as you go. |
-| ![The move list, with Hidden Power's type and power](../mod/images/moves.png) | ![The nickname keyboard](../mod/images/keyboard.png) |
+| ![The move list, with Hidden Power's type and power](mod/images/moves.png) | ![The nickname keyboard](mod/images/keyboard.png) |
 | Every move the species can legally have, with type, power, accuracy and PP. | Nicknames, on a keyboard laid out like the Game Boy's. |
-| ![The team's menu, with Edit POKéMON and Change Trainer under the game's own entries](../mod/images/team_menu.png) | ![The cursor in the team's box, under "Edit which POKéMON?"](../mod/images/team.png) |
+| ![The team's menu, with Edit POKéMON and Change Trainer under the game's own entries](mod/images/team_menu.png) | ![The cursor in the team's box, under "Edit which POKéMON?"](mod/images/team.png) |
 | Start on a chosen team: **Edit POKéMON** and **Change Trainer** join the game's own entries. | Edit POKéMON opens the editor on a rental that is already on the team. |
-| ![The trainer window: a picture, the name ASH and the title GYM LEADER](../mod/images/trainer.png) | ![Before a battle: the player as GYM LEADER ASH](../mod/images/versus.png) |
+| ![The trainer window: a picture, the name ASH and the title GYM LEADER](mod/images/trainer.png) | ![Before a battle: the player as GYM LEADER ASH](mod/images/versus.png) |
 | Change Trainer: any of the game's trainer pictures, a name and a title. | They are yours on the screens before and after a battle. |
-| ![Diglett under OU Rules: Yes and FISSURE greyed out, the hand on EDIT](../mod/images/clause.png) | ![RULE EDIT's page for a rule set, with three questions about moves](../mod/images/rule_edit.png) |
+| ![Diglett under OU Rules: Yes and FISSURE greyed out, the hand on EDIT](mod/images/clause.png) | ![RULE EDIT's page for a rule set, with three questions about moves](mod/images/rule_edit.png) |
 | **OU Rules** in Free Battle: a Pokémon with a move the rules keep out cannot be entered until it is edited. | The same clauses for a rule set of your own, in RULE EDIT. |
 
 ## Getting it
@@ -33,9 +33,9 @@ stage from the start, and all 251 Pokémon for rent.
    **Edit POKéMON** and **Change Trainer**.
 
 The patch holds only the changes, not the game: no ROM is in this repository or in its
-releases. The [user guide](../mod/README.md) has the controls, what exactly can be
+releases. The [user guide](mod/README.md) has the controls, what exactly can be
 changed, the known limits and a checklist for trying it on a console.
-[CHANGELOG.md](../mod/CHANGELOG.md) says what each release changed.
+[CHANGELOG.md](mod/CHANGELOG.md) says what each release changed.
 
 ## What can be edited
 
@@ -78,16 +78,13 @@ Ares64 core.
 
 ## This repository
 
-This is a fork of [michiiik/pokestadiumgs](https://github.com/michiiik/pokestadiumgs),
-itself a fork of [pret/pokestadiumgs](https://github.com/pret/pokestadiumgs), the
-decompilation of Pokémon Stadium 2. The mod is built on it without changing its sources:
+The mod is built on [team-hippodrome/pokestadiumgs](https://github.com/team-hippodrome/pokestadiumgs),
+a decompilation of Pokémon Stadium 2, which is pinned here as a submodule and not changed:
 
-- `master` follows the decompilation. The mod is on `rental-editor`.
-- [mod/](../mod) holds the mod's code, data and tests, and [tools/mod/](../tools/mod)
-  its build tools.
-- [mod/NOTES.md](../mod/NOTES.md) covers building, how the mod hooks the game, what was
+- [mod/](mod) holds the mod's code, data and tests, and [tools/mod/](tools/mod) its build
+  tools. `decomp/` is the decompilation; clone with `--recurse-submodules` to get it.
+- [mod/NOTES.md](mod/NOTES.md) covers building, how the mod hooks the game, what was
   learned about the game along the way, the tests, and how a release is made.
-- The decompilation's own README is [README.md](../README.md).
 
 Move legality comes from Pokémon Showdown's Gen 2 learnsets and the pret Gold and Crystal
 disassemblies. The sets OU Rules rents are [Smogon](https://www.smogon.com/dex/gs/formats/ou/)'s,
