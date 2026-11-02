@@ -4,6 +4,38 @@ What changed in each release of the patch, newest first. A release's heading is 
 and the text under it is published as the release's notes; see "Releases" in
 [NOTES.md](NOTES.md).
 
+## v0.6.0
+
+OU Rules now rents Smogon's sets, and Hidden Power shows its real type everywhere you look
+at it, in a battle too.
+
+- **Smogon's sets under OU Rules.** Every species Smogon has a GSC OU set for, 94 of them,
+  is rented with that set in place of the game's rental: its moves, its held item, DVs of
+  15 (or the ones its Hidden Power's type needs), the most Stat Exp, and happiness 255 for
+  Return. Where a set offers a choice of moves, the first one OU Rules allows is used. The
+  item is on the Pokémon when you choose Yes, and ITEM opens on it, to change it or take
+  it off.
+- **Hidden Power, Return and Frustration in the game's panel.** The game's own panel below
+  the editor shows Hidden Power's real type, in its icon and the colour of its name. The
+  box C opens on a move gives Hidden Power's type and power and the power of
+  Return and Frustration, where the original has Normal and `---`.
+- **The same in a battle.** The moves shown while R is held, the box R and the pad open on
+  one, with its POWER, and a Pokémon's status from the POKéMON list. Only what is shown has
+  changed: the moves work in a battle as they always did.
+
+Things to know:
+
+- A few sets have a move that is only known from an event, Lovely Kiss on Nidoking for
+  one. The Pokémon keeps it, but EDIT does not offer it, so once it is replaced it is
+  gone.
+- Ariados keeps the game's rental: its one set has Spider Web with Baton Pass. The other
+  species without a set, and Anything Goes, rent the game's own.
+- Rentals have no PP Ups, Smogon's sets included: the game does not read them from a
+  rental's record.
+
+Tested in BizHawk with its Ares64 core, with and without an Expansion Pak, and this
+release has been run on a real Nintendo 64.
+
 ## v0.5.0
 
 Rules that keep moves out, a rule set for competitive play, and nothing left to unlock in

@@ -196,7 +196,9 @@ Plan: `C:\Users\Alex\.claude\plans\i-want-to-build-delightful-lecun.md`.
   with the trainer pictures' second directory (reported 2026-10-13; what was tried, the
   cart and the Expansion Pak are not recorded here either). So has the build released
   as v0.5.0, the first with the move clauses, OU Rules, every stage and the five
-  Pokémon (reported 2026-10-14; what was tried is not recorded). Nothing has been run on standalone ares;
+  Pokémon (reported 2026-10-14; what was tried is not recorded), and the build released
+  as v0.6.0, the first with Smogon's sets and Hidden Power's type in a battle (reported
+  2026-11-02; what was tried is not recorded). Nothing has been run on standalone ares;
   BizHawk's Ares64 core is the same emulation core.
 - Known gaps: an edit lives in the list cell, so scrolling the rental far away and back
   before entering it loses the edit. An edit made on the team lives in the team's cell
